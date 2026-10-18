@@ -6,7 +6,7 @@ export type ScaleMode = 'linear' | 'log' | 'percent';
 export type ChartStyle = 'candles' | 'line' | 'area' | 'heikin-ashi';
 export type PlotStyle = 'line'|'area'|'histogram'|'columns'|'circles'|'cross';
 export interface PlotPoint { index:number; time:number; value:number; color?:string }
-export interface ScriptPlot { name:string; color:string; pane:'price'|'indicator'; paneId?:string; style?:PlotStyle; lineWidth?:number; baseline?:number; opacity?:number; lineStyle?:'solid'|'dashed'|'dotted'; values:PlotPoint[] }
+export interface ScriptPlot { id?:string; name:string; color:string; pane:'price'|'indicator'; paneId?:string; style?:PlotStyle; lineWidth?:number; baseline?:number; opacity?:number; lineStyle?:'solid'|'dashed'|'dotted'; values:PlotPoint[] }
 export interface BarColor {index:number;time:number;color:string;wickColor?:string;borderColor?:string}
 export interface BackgroundColor {index:number;time:number;color:string}
 export interface ScriptShape {index:number;time:number;name:string;shape:'triangle-up'|'triangle-down'|'circle'|'square'|'cross';location:'abovebar'|'belowbar'|'absolute';price:number|null;color:string;text:string;size:number}

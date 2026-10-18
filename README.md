@@ -128,7 +128,8 @@ appends follow the end only if you were already viewing it.
 
 Other methods: `getData`, `resetScale`, `zoom`, `getVisibleRange`,
 `setVisibleRange`, `getDrawings`, `setDrawings`, `clearDrawings`, `runScript`,
-`clearScript`, `registerTool`, `getCustomTools` and `exportImage`. Plot results are snapshots: rerun a custom
+`addIndicator`, `updateIndicator`, `removeIndicator`, `setIndicatorVisibility`,
+`getIndicators`, `clearScript`, `registerTool`, `getCustomTools` and `exportImage`. Plot results are snapshots: rerun a custom
 script after changing its data. Built-in workspace studies recalculate as
 candles change.
 
@@ -280,7 +281,9 @@ workspaces can use different bridge ports with `node server/serve.mjs --port 304
 | `chart_get_results` | Read plots, equity, trades and metrics. |
 | `chart_list_indicators` | Discover built-in studies and execution rules. |
 | `chart_get_documentation`, `chart_get_example` | Read bundled guides and runnable JS examples. |
-| `chart_update_parameters` | Rerun the current indicator with edited inputs. |
+| `chart_update_parameters` | Edit one study's inputs using its `indicatorId`. |
+| `chart_get_indicators` | List attached studies, IDs, visibility and inputs. |
+| `chart_manage_indicator` | Hide, show or remove one study. |
 | `chart_control` | Drawings, tools, custom tool registration, range, zoom and saved layouts. |
 | `chart_export_image` | Return a PNG of the price chart. |
 
@@ -324,3 +327,18 @@ contact customers or place exchange orders.
 
 MIT licensed. [Opennan company credits](CREDITS.md) and original attribution are retained in LICENSE and NOTICE. Bundled
 dependency licenses are reproduced in THIRD_PARTY_NOTICES.md.
+
+## Multiple indicators and workspace controls
+
+Open **Indicators** to add more JavaScript examples alongside existing studies.
+Each indicator has its own eye, settings, source and × remove controls. Separate
+panes keep independent scales, including when scripts reuse plot names. Up to
+20 JavaScript instances can stay attached; each calculation runs separately.
+
+The chevron beside **Run script** collapses the bottom panel. Click it again, or
+click a panel tab, to reopen it. Hover drawings to see endpoint prices, percent
+change and bar counts; long/short position tools display their risk/reward values.
+Indicator legends display numeric values for the hovered candle.
+
+See the [multi-indicator JavaScript API](docs/javascript-api.md) and
+[MCP management guide](docs/mcp.md) for programmatic controls.

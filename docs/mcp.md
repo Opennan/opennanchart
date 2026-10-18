@@ -2,7 +2,9 @@
 
 Start `npm start` and open `http://127.0.0.1:3031/`. The browser performs chart
 operations and isolated script execution; the local Node bridge never evaluates
-user source. The workspace supports one custom script result at a time.
+user source. The workspace retains up to 20 independent JS indicator instances, including
+price overlays and separate panes. A new source adds a study; rerunning the same
+source updates its matching instance. Only one script calculation runs at a time.
 
 ```json
 {
@@ -100,3 +102,17 @@ and slippage. Alert events are local historical inspection data, not hosted
 realtime notifications. No Pine compiler, arbitrary page-code evaluation,
 credential access, public hosting, external messaging or exchange orders are
 provided by these tools. Use the documented inputs and chart operations.
+
+## Manage multiple studies
+
+Call `chart_get_indicators()` to list attached instance IDs, visibility and
+individual input values. `chart_update_parameters({indicatorId, inputs:{Length:21}})`
+updates that study without changing the others. `chart_run_script` accepts
+`indicatorId` to replace the selected instance's source. Leave it out to add a
+new source or rerun an existing matching source.
+
+Use `chart_manage_indicator({id, visible:false})` to hide a study; set
+`visible:true` to restore it. `{id, remove:true}` removes only that instance.
+Hidden studies retain their settings. `chart_get_results` continues to return
+the most recent successful run; use the collection tool to discover all studies.
+Browser reload restores the collection from the running in-memory bridge.

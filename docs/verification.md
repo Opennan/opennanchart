@@ -3,12 +3,12 @@
 Verified locally on 2026-10-18 with Node, a production Vite build and headless
 Chrome. No customer messages or exchange orders were sent.
 
-- `npm test`: 30 passing tests covering indicator math, next-open fills, fees,
+- `npm test`: 33 passing tests covering indicator math, next-open fills, fees,
   slippage, data/import validation and result schemas.
 - `npm run build`: passes TypeScript checks and builds the workspace, ES module,
   standalone browser bundle and declarations.
-- `npm run test:browser`: 50 passing browser/integration checks (32 existing
-  regressions and 18 extended feature checks), with no runtime
+- `npm run test:browser`: 68 passing browser/integration checks (32 existing
+  regressions, 18 extended checks and 18 multi-indicator/workspace checks), with no runtime
   page errors. Uses the compiled workspace, real HTTP/SSE bridge, actual stdio
   MCP client/server and browser script sandbox. Chart data is deterministic test
   fixtures; external Binance availability is not covered.
@@ -28,6 +28,11 @@ Chrome. No customer messages or exchange orders were sent.
   tools; MCP documentation/resources/prompts; direct command consistency and
   actual image export. The >4 MB image transport boundary uses a real PNG with
   deterministic random pixels as a fixture, rather than a market-data chart.
+- Multi-indicator checks run actual Chrome and stdio MCP against the compiled UI.
+  They cover duplicate source/plot names, independent inputs, hiding and removal,
+  reloads, offline collection reconciliation, closing during a pending run, editor
+  instance isolation, panel collapse, dropdown state, aligned desktop/mobile icons,
+  drawing-hover measurements and the standalone multi-indicator API.
 - A separate real stdio smoke check starts MCP from a directory without `dist`
   and reads bundled docs/examples, verifying development use before a build.
 - `npm audit --omit=dev`: no reported production dependency vulnerabilities at

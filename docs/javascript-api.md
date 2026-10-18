@@ -27,8 +27,39 @@ price chart; `false` creates a separate pane named after the indicator. Without
 a declaration, plots default to price. Override a plot with `pane: 'price'` or
 `pane: 'indicator'`. `paneId: 'Momentum'` groups oscillator plots in a named pane
 with its own vertical scale. All panes follow the price chart's horizontal range.
-The workspace executes one custom script at a time; that script may create
-several panes. Built-in studies may run alongside it.
+The chart holds up to 20 independent JavaScript indicator instances alongside
+built-in studies. Each script may create several panes. Only one calculation
+runs at a time; attached results remain visible while another script runs.
+Choose **Indicators** to add another example. The eye hides one instance, the
+settings icon edits only its inputs, the code icon opens its source, and ×
+removes it. These controls appear beside its name or in its pane header.
+The Indicators dialog also lists hidden studies so they can be shown again.
+Attached JS studies survive browser reload while the local bridge stays running;
+the bridge is in memory and does not persist them across server shutdown.
+Changing datasets clears attached JS results.
+
+Click the bottom panel's chevron to collapse the editor and results while keeping
+the tabs visible. Clicking the active tab also collapses or expands it. Clicking
+a different tab opens that panel. The draft stays saved locally.
+
+```js
+const rsiId = await chart.addIndicator(rsiSource, { inputs: { Length: 14 } });
+const sentimentId = await chart.addIndicator(sentimentSource);
+console.log(chart.getIndicators()); // IDs, names, visibility, individual inputs
+await chart.updateIndicator(rsiId, { inputs: { Length: 21 } });
+chart.setIndicatorVisibility(sentimentId, false);
+chart.removeIndicator(rsiId);
+```
+
+`addIndicator()` always creates a new instance, including another copy of the same
+source. `runScript()` adds a new source or updates an existing matching source.
+Use an ID with `updateIndicator()` when two copies share source code.
+`clearScript()` removes all managed JS studies. With React's controlled `result`
+prop, the caller owns the displayed results; these methods manage the component's
+internal studies when that prop is omitted.
+Each instance namespaces its plot and pane references, so common names such as
+`Value` do not merge scales or connect fills between unrelated studies. Later
+visible instances take precedence when several scripts color the same candle.
 
 ## Bar context and state
 
@@ -75,7 +106,10 @@ const lockedPeriod = input.int('Fixed calibration', 18, { editable: false });
 ```
 
 From JS: `chart.runScript(source, { inputs: { Length: 21, 'Show levels': false } })`.
-From MCP: `chart_update_parameters({inputs:{Length:21}})` reruns the last script.
+From MCP: `chart_update_parameters({indicatorId, inputs:{Length:21}})` reruns
+that instance. Omitting `indicatorId` selects the last successful script.
+`chart_get_indicators()` lists IDs; `chart_manage_indicator({id, visible:false})`
+hides one, and `{id, remove:true}` removes it.
 
 ## Built-in calculations
 
@@ -163,3 +197,6 @@ Use `createChart(element)` or `<OpenNanChart>`, then `setData`, `updateCandle`,
 [The README](../README.md) has complete embedding examples;
 [custom-tools.md](custom-tools.md) describes declarative custom drawing tools;
 [mcp.md](mcp.md) describes agent control. Retain [Opennan credits](../CREDITS.md).
+
+`onHover` receives the hovered candle. The optional `onHoverEnd` callback fires
+when the pointer leaves the price canvas; clear linked crosshairs in that callback.

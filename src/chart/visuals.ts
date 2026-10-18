@@ -3,7 +3,7 @@ type Axes={x:(index:number)=>number;y:(value:number)=>number;start:number;end:nu
 /** Shared plot renderer for the price chart and synchronized oscillator pane. */
 export function drawPlots(ctx:CanvasRenderingContext2D,plots:ScriptPlot[],fills:ScriptFill[],a:Axes){
   for(const fill of fills){
-    const from=plots.find(p=>p.name===fill.from),to=plots.find(p=>p.name===fill.to);if(!from||!to)continue;
+    const from=plots.find(p=>(p.id??p.name)===fill.from),to=plots.find(p=>(p.id??p.name)===fill.to);if(!from||!to)continue;
     const other=new Map(to.values.map(p=>[p.index,p]));ctx.fillStyle=fill.color;let previous:typeof from.values[number]|undefined;
     for(const p of from.values){if(p.index<a.start-1||p.index>a.end+1){previous=undefined;continue;}const q=other.get(p.index),old=previous&&other.get(previous.index);if(previous&&q&&old&&p.index===previous.index+1){const coords=[a.y(previous.value),a.y(p.value),a.y(q.value),a.y(old.value)];if(coords.every(Number.isFinite)){ctx.beginPath();ctx.moveTo(a.x(previous.index),coords[0]);ctx.lineTo(a.x(p.index),coords[1]);ctx.lineTo(a.x(p.index),coords[2]);ctx.lineTo(a.x(previous.index),coords[3]);ctx.closePath();ctx.fill();}}previous=p;}
   }

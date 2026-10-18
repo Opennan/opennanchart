@@ -11,6 +11,7 @@ export {executeScript,INDICATORS} from './engine';
 export {TEMPLATES} from './scripting/templates';
 export {normalizeCandle,normalizeCandles,updateCandle,sampleCandles} from './data';
 export type * from './types';
+export type {IndicatorInfo,IndicatorInstance} from './studies';
 /** Plain-JavaScript embedding. The container must have a nonzero height. */
 export function createChart(element:HTMLElement,options:OpenNanChartProps={}):OpenNanChartHandle&{destroy:()=>void}{
   const ref=React.createRef<OpenNanChartHandle>(),root=createRoot(element);

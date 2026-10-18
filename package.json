@@ -39,7 +39,7 @@
     "mcp": "node server/mcp.mjs",
     "test": "tsx --test tests/*.test.ts",
     "check": "tsc --noEmit",
-    "test:browser": "node tests/browser.mjs && node tests/features.browser.mjs",
+    "test:browser": "node tests/browser.mjs && node tests/features.browser.mjs && node tests/workspace.browser.mjs",
     "prepare": "npm run build"
   },
   "peerDependencies": {

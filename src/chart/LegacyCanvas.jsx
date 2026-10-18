@@ -722,22 +722,9 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
         for(const s of shapes){if(s.index<L.s||s.index>viewRange.end)continue;const bar=ohlcv[s.index],x=L.t2s(s.index)+L.cW2/2,y=s.location==='absolute'?L.$2s(s.price):L.$2s(bar?.[s.location==='belowbar'?3:2])+(s.location==='belowbar'?s.size+9:-s.size-9);if(Number.isFinite(y))drawSignalShape(ctx,s,x,y);}
         for(const marker of markers){if(marker.index < L.s || marker.index > viewRange.end)continue;const x=L.t2s(marker.index)+L.cW2/2,buy=marker.side==='buy',bar=ohlcv[marker.index],y=L.$2s(bar?.[buy?3:2]??marker.price)+(buy?13:-13);ctx.fillStyle=buy?colors.up:colors.dw;ctx.beginPath();ctx.moveTo(x,y+(buy?-5:5));ctx.lineTo(x-4,y+(buy?3:-3));ctx.lineTo(x+4,y+(buy?3:-3));ctx.closePath();ctx.fill();}
 
-        // Drawings
-        drawings.forEach(d => {
-            // Check if cursor is hovering over this drawing (for Position tools)
-            let isHovered = false;
-            if (d.type.startsWith('PositionTool:') && d.p.length >= 2 && cursor.visible) {
-                const isLong = d.type.includes('Long');
-                const entryY = L.$2s(d.p[0].y$);
-                const slY = d.p.length > 1 ? L.$2s(d.p[1].y$) : (isLong ? entryY + 50 : entryY - 50);
-                const tpY = d.p.length > 2 ? L.$2s(d.p[2].y$) : (isLong ? entryY - 100 : entryY + 100);
-                const p0x = L.t2s(d.p[0].t), p1x = L.t2s(d.p[1].t);
-                const bx = Math.min(p0x, p1x), w = Math.abs(p1x - p0x) || 150;
-                const minY = Math.min(tpY, slY, entryY), maxY = Math.max(tpY, slY, entryY);
-                isHovered = cursor.x >= bx && cursor.x <= bx + w && cursor.y >= minY && cursor.y <= maxY;
-            }
-            renderDrawing(ctx, d, L, d.id === selectedId, false, isHovered);
-        });
+        // Hover and selection share hit geometry, including all drawing types.
+        const hoveredId=cursor.visible&&cursor.x<L.cW?hitTest(cursor.x,cursor.y,L).d?.id:null;
+        drawings.forEach(d=>renderDrawing(ctx,d,L,d.id===selectedId,false,d.id===hoveredId));
 
         // WIP preview
         if (wipDrawing && wipDrawing.p.length > 0 && cursor.visible) {
@@ -868,7 +855,7 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
         }
 
         ctx.textAlign = 'left';
-    }, [ohlcv, viewRange, cursor, colors, width, height, drawings, wipDrawing, selectedId, getLayout, plots, markers, customBarColors, backgrounds, shapes, fills, customTools, chartStyle, barSpacing]);
+    }, [ohlcv, viewRange, cursor, colors, width, height, drawings, wipDrawing, selectedId, getLayout, plots, markers, customBarColors, backgrounds, shapes, fills, customTools, chartStyle, barSpacing, hitTest]);
 
     const renderDrawing = (ctx, d, L, sel, preview = false, hovered = false) => {
         const col = sel ? '#7dd3fc' : (d.color || '#7dd3fc');
@@ -1409,7 +1396,7 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
             ctx.globalAlpha = 1;
 
             // Show price labels when enabled or selected (for line tools)
-            if ((d.showPrice || sel) && d.type.startsWith('LineTool:')) {
+            if ((d.showPrice || sel || hovered || preview) && !d.type.startsWith('PositionTool:') && !d.type.startsWith('FibTool:')) {
                 drawPriceLabel(ctx, d.type, p1, p2, pr1, pr2, col, L);
             }
 
@@ -1439,14 +1426,14 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
     const drawPriceLabel = (ctx, type, p1, p2, pr1, pr2, col, L) => {
         ctx.font = '11px Arial';
         const delta = pr2 - pr1;
-        const pct = ((pr2 / pr1 - 1) * 100).toFixed(2);
+        const pct = pr1===0?'—':((pr2 / pr1 - 1) * 100).toFixed(2);
         const midX = (p1.x + p2.x) / 2;
         const midY = (p1.y + p2.y) / 2;
 
         if ((type==='LineTool:HorzLine')||(type==='LineTool:VertLine')||(type==='LineTool:CrossLine')) {
-            const label=(type==='LineTool:VertLine')?'':L.label(pr1);if(label){ctx.fillStyle=col;ctx.fillText(label,p1.x+10,p1.y-10);}return;
+            const index=Math.round(L.s2t(p1.x)),time=ohlcv[index]?.[0];const label=(type==='LineTool:VertLine')?(time===undefined?'':new Date(time).toLocaleString()):L.label(pr1);if(label){ctx.fillStyle=col;ctx.fillText(label,p1.x+10,p1.y-10);}return;
         }
-        if (type.startsWith('LineTool:')) {
+        if (!type.startsWith('RangeTool:')) {
             const lbl1 = pr1.toFixed(2);
             const lbl2 = pr2.toFixed(2);
 
@@ -1460,7 +1447,8 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
             ctx.fillStyle = col;
             ctx.fillText(lbl2, p2.x + 14, p2.y + 4);
 
-            const deltaStr = `${delta >= 0 ? '+' : ''}${delta.toFixed(2)} (${delta >= 0 ? '+' : ''}${pct}%)`;
+            const bars=Math.round(Math.abs(L.s2t(p2.x)-L.s2t(p1.x)));
+            const deltaStr = `${delta >= 0 ? '+' : ''}${delta.toFixed(2)} (${delta >= 0 ? '+' : ''}${pct}%) · ${bars} bars`;
             const tw = ctx.measureText(deltaStr).width;
             ctx.fillStyle = 'rgba(16,21,28,0.98)';
             ctx.fillRect(midX - tw/2 - 5, midY - 22, tw + 10, 20);
@@ -1474,7 +1462,7 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
                 lines.push(`${delta >= 0 ? '+' : ''}${delta.toFixed(2)} (${delta >= 0 ? '+' : ''}${pct}%)`);
             }
             if (type.includes('Time') || type.includes('PriceTime')) {
-                const numBars = Math.round(Math.abs(p2.x - p1.x) / (L.cW / L.vis.length));
+                const numBars = Math.round(Math.abs(L.s2t(p2.x)-L.s2t(p1.x)));
                 lines.push(`${numBars} bars`);
             }
 
@@ -1655,7 +1643,7 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
     };
 
     const onMouseUp = () => setDrag({ type: null });
-    const onMouseLeave = () => { setDrag({ type: null }); setCursor(c => ({ ...c, visible: false })); };
+    const onMouseLeave = () => { onHover?.(null);setDrag({ type: null }); setCursor(c => ({ ...c, visible: false })); };
 
     // Use ref-based wheel handler to prevent page scroll
     useEffect(() => {

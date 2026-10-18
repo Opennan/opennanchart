@@ -90,7 +90,7 @@ try{
   await page.getByText('TEST / USDT',{exact:true}).waitFor();
   await call('chart_set_view',{scaleMode:'log',chartStyle:'line',fitContent:true});await page.waitForFunction(()=>document.querySelector('select[aria-label="Price scale"]').value==='log');
   const result=await call('chart_run_script',{source:"onBar(({ ta, plot }) => plot('MCP SMA', ta.sma(3), {color:'#7dd3fc'}));"});
-  assert.equal(result.plots[0].name,'MCP SMA');await page.locator('.plot-legend').getByText('MCP SMA',{exact:false}).waitFor();assert.equal((await call('chart_get_results',{includeSeries:true})).plots[0].values.length,original.length-2);check('real stdio MCP injects data, changes the UI and runs a sandboxed custom indicator');
+  assert.equal(result.plots[0].name,'MCP SMA');await page.locator('.indicator-controls').getByTitle('MCP SMA',{exact:true}).waitFor();assert.equal((await call('chart_get_results',{includeSeries:true})).plots[0].values.length,original.length-2);check('real stdio MCP injects data, changes the UI and runs a sandboxed custom indicator');
   assert.match(await editor.innerText(),/while \(true\)/);await page.getByRole('button',{name:'Load agent script',exact:false}).waitFor();check('MCP results preserve the saved editor draft and offer an explicit load action');
 
   const tampered=await mcp.callTool({name:'chart_run_script',arguments:{source:"RegExp.prototype.test=()=>true;onBar(({plot})=>plot('x',1,{color:'url(https://invalid.example)'}));"}});assert.equal(tampered.isError,true);assert.match(tampered.content[0].text,/Invalid script result/);

@@ -43,3 +43,11 @@ export function validateScriptResult(result,candles){
   if(r.alerts!==undefined){if(!Array.isArray(r.alerts)||r.alerts.length>10000)fail('invalid alerts.');const keys=new Set();for(const a of r.alerts){const key=JSON.stringify([a?.index,a?.message]);if(!point(a)||!text(a.message,500)||!a.message.length||a.frequency!=='once-per-bar-close'||keys.has(key))fail('invalid alert.');keys.add(key);}}
   return r;
 }
+
+/** Completed indicators are snapshots of a prefix of a streaming dataset.
+ * Full worker/job results still use strict validateScriptResult validation. */
+export function validateScriptSnapshot(result,candles){
+  const count=Array.isArray(result?.equity)?result.equity.length:-1;
+  if(count<0||count>candles.length)throw new Error('Invalid script snapshot: invalid candle count.');
+  return validateScriptResult(result,candles.slice(0,count));
+}
