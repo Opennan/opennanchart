@@ -8,7 +8,7 @@ import {randomUUID} from 'node:crypto';
 import {validateScriptResult} from '../shared/result.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'../dist/demo');
 const MAX_CANDLES=10000;
-const summarize=result=>({configuration:result.configuration,metrics:result.metrics,inputs:result.inputs,logs:result.logs,trades:result.trades.slice(-100),totalTrades:result.trades.length,plots:result.plots.map(p=>({name:p.name,color:p.color,pane:p.pane,pointCount:p.values.length,lastValue:p.values.at(-1)?.value??null})),equityPoints:result.equity.length});
+const summarize=result=>({indicator:result.indicator,configuration:result.configuration,metrics:result.metrics,inputs:result.inputs,inputDefinitions:result.inputDefinitions??{},alerts:(result.alerts??[]).slice(-100),totalAlerts:result.alerts?.length??0,visuals:{barColors:result.barColors?.length??0,backgrounds:result.backgrounds?.length??0,shapes:result.shapes?.length??0,fills:result.fills??[]},logs:result.logs,trades:result.trades.slice(-100),totalTrades:result.trades.length,plots:result.plots.map(p=>({name:p.name,color:p.color,pane:p.pane,paneId:p.paneId,style:p.style??'line',pointCount:p.values.length,lastValue:p.values.at(-1)?.value??null})),equityPoints:result.equity.length});
 export function validateCandle(input){
   const c=Array.isArray(input)?{time:input[0],open:input[1],high:input[2],low:input[3],close:input[4],volume:input[5]}:input;
   if(!c||![c.time,c.open,c.high,c.low,c.close,c.volume].every(Number.isFinite)||!Number.isSafeInteger(c.time)||c.time<0||Math.min(c.open,c.high,c.low,c.close)<=0||c.volume<0||c.high<Math.max(c.open,c.close,c.low)||c.low>Math.min(c.open,c.close,c.high))throw new Error('Invalid OHLCV candle. Use Unix milliseconds and positive prices.');
@@ -19,8 +19,8 @@ export function validateData(inputs){
   for(let i=1;i<rows.length;i++)if(rows[i].time<=rows[i-1].time)throw new Error('Candle timestamps must be unique and increasing.');return rows;
 }
 export function createBridgeServer({port=3031,apiOnly=false}={}){
-  let state={instanceId:randomUUID(),candles:[],symbol:'BTCUSDT',interval:'1h',source:'No data',scaleMode:'linear',chartStyle:'candles',revision:0,viewRevision:0,resultRevision:0,result:null,script:'',scriptOrigin:null};
-  const clients=new Map(),jobs=new Map();
+  let state={instanceId:randomUUID(),candles:[],symbol:'BTCUSDT',interval:'1h',source:'No data',scaleMode:'linear',chartStyle:'candles',revision:0,viewRevision:0,resultRevision:0,result:null,script:'',scriptOrigin:null,lastRun:null};
+  const clients=new Map(),jobs=new Map(),commands=new Map();
   const publish=(message,origin)=>{for(const [id,res]of clients)if(id!==origin)res.write(`data: ${JSON.stringify({...message,instanceId:state.instanceId})}\n\n`);};
   const invalidate=()=>{state.result=null;state.revision++;for(const [id,job]of jobs){clearTimeout(job.timer);job.reject(new Error('Chart data changed during the run. Run again on the new data.'));jobs.delete(id);}};
   const server=http.createServer(async(req,res)=>{
@@ -37,7 +37,7 @@ export function createBridgeServer({port=3031,apiOnly=false}={}){
       if(['POST','PUT'].includes(req.method)){
         if(!req.headers['content-type']?.startsWith('application/json'))return json(415,{error:'Use Content-Type: application/json.'});
         let size=0;const chunks=[];
-        const maxBody=(url.pathname==='/api/result'||url.pathname.startsWith('/api/jobs/'))?32*1024*1024:4*1024*1024;
+        const maxBody=(url.pathname==='/api/result'||url.pathname.startsWith('/api/jobs/')||url.pathname.startsWith('/api/commands/'))?32*1024*1024:4*1024*1024;
         for await(const chunk of req){size+=chunk.length;if(size>maxBody)return json(413,{error:'Request exceeds the endpoint size limit.'});chunks.push(chunk);}
         body=JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');
         if(!body||typeof body!=='object'||Array.isArray(body))throw new Error('Provide a JSON object.');
@@ -68,7 +68,19 @@ export function createBridgeServer({port=3031,apiOnly=false}={}){
         if(body.scaleMode)state.scaleMode=body.scaleMode;if(body.chartStyle)state.chartStyle=body.chartStyle;state.viewRevision++;
         publish({type:'view',scaleMode:state.scaleMode,chartStyle:state.chartStyle,viewRevision:state.viewRevision,fitContent:!!body.fitContent},client);return json(200,{scaleMode:state.scaleMode,chartStyle:state.chartStyle,viewRevision:state.viewRevision});
       }
-      if(req.method==='POST'&&url.pathname==='/api/run'){
+      if(req.method==='POST'&&url.pathname==='/api/chart'){
+        if(!['getDrawings','setDrawings','clearDrawings','getVisibleRange','setVisibleRange','zoom','resetScale','fitContent','setTool','registerTool','getCustomTools','exportImage','getLayout','setLayout','setFullChart'].includes(body.action))throw new Error('Unknown chart action. Read the MCP guide.');
+        const browser=[...clients.values()][0];if(!browser)return json(409,{error:'Open the chart workspace in a browser first.'});if(commands.size>=10)return json(429,{error:'Too many pending chart commands.'});
+        const id=randomUUID(),result=await new Promise((resolveCommand,rejectCommand)=>{const timer=setTimeout(()=>{commands.delete(id);rejectCommand(new Error('The chart command timed out.'));},5000);commands.set(id,{resolve:resolveCommand,reject:rejectCommand,timer});browser.write(`data: ${JSON.stringify({type:'command',instanceId:state.instanceId,id,action:body.action,args:body.args})}\n\n`);});return json(200,{result});
+      }
+      if(req.method==='POST'&&url.pathname.startsWith('/api/commands/')){
+        const id=url.pathname.split('/')[3],command=commands.get(id);if(!command)return json(404,{error:'Chart command expired.'});commands.delete(id);clearTimeout(command.timer);body.error?command.reject(new Error(String(body.error).slice(0,2000))):command.resolve(body.result);return json(200,{accepted:true});
+      }
+      if(req.method==='POST'&&(url.pathname==='/api/run'||url.pathname==='/api/recalculate')){
+        if(url.pathname==='/api/recalculate'){
+          if(!state.lastRun)throw new Error('Run an indicator before updating its parameters.');
+          body={source:state.lastRun.source,includeSeries:body.includeSeries,options:{...state.lastRun.options,inputs:{...state.lastRun.options.inputs,...(body.inputs??{})}}};
+        }
         if(typeof body.source!=='string'||body.source.length>64000)throw new Error('Script source must be under 64 KB.');
         const browser=[...clients.values()][0];if(!browser)return json(409,{error:`Open http://127.0.0.1:${apiOnly?3030:port}/ in a browser first. Scripts run in the browser sandbox.`});
         if(!state.candles.length)throw new Error('Inject candle data before running a script.');
@@ -85,11 +97,11 @@ export function createBridgeServer({port=3031,apiOnly=false}={}){
         if(body.error){job.reject(new Error(String(body.error).slice(0,2000)));return json(200,{accepted:true});}
         if(job.revision!==state.revision){job.reject(new Error('Chart data changed. Run again.'));return json(409,{error:'Stale run.'});}
         let validated;try{validated=validateScriptResult(body.result,state.candles);}catch(error){job.reject(error);throw error;}
-        state.result=validated;state.script=job.source;state.scriptOrigin='agent';state.resultRevision++;job.resolve(validated);publish({type:'result',result:validated,source:state.script,origin:state.scriptOrigin,revision:state.revision,resultRevision:state.resultRevision},client);return json(200,{accepted:true,resultRevision:state.resultRevision});
+        state.result=validated;state.script=job.source;state.scriptOrigin='agent';state.lastRun={source:state.script,options:{...validated.configuration,inputs:{...validated.inputs}}};state.resultRevision++;job.resolve(validated);publish({type:'result',result:validated,source:state.script,origin:state.scriptOrigin,revision:state.revision,resultRevision:state.resultRevision},client);return json(200,{accepted:true,resultRevision:state.resultRevision});
       }
       if(req.method==='POST'&&url.pathname==='/api/result'){
         if(body.revision!==state.revision)return json(409,{error:'Data changed; this result is stale.'});
-        state.result=validateScriptResult(body.result,state.candles);state.script=typeof body.source==='string'?body.source.slice(0,64000):'';state.scriptOrigin='browser';state.resultRevision++;publish({type:'result',result:state.result,source:state.script,origin:state.scriptOrigin,revision:state.revision,resultRevision:state.resultRevision},client);return json(200,{accepted:true,resultRevision:state.resultRevision});
+        state.result=validateScriptResult(body.result,state.candles);state.script=typeof body.source==='string'?body.source.slice(0,64000):'';state.scriptOrigin='browser';state.lastRun={source:state.script,options:{...state.result.configuration,inputs:{...state.result.inputs}}};state.resultRevision++;publish({type:'result',result:state.result,source:state.script,origin:state.scriptOrigin,revision:state.revision,resultRevision:state.resultRevision},client);return json(200,{accepted:true,resultRevision:state.resultRevision});
       }
       if(url.pathname.startsWith('/api/'))return json(404,{error:'Unknown API operation.'});
       if(apiOnly)return json(404,{error:'API bridge only. Open the Vite demo on port 3030.'});
@@ -98,7 +110,7 @@ export function createBridgeServer({port=3031,apiOnly=false}={}){
       const content=await readFile(path);res.writeHead(200,{'Content-Type':({'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.json':'application/json','.woff2':'font/woff2'})[extname(path)]??'application/octet-stream'});res.end(req.method==='HEAD'?undefined:content);
     }catch(error){if(!res.headersSent)json(error.code==='ENOENT'?404:400,{error:error.code==='ENOENT'?'Build the demo with npm run build first.':String(error.message).slice(0,2000)});else res.end();}
   });
-  server.on('close',()=>{for(const res of clients.values())res.end();for(const job of jobs.values()){clearTimeout(job.timer);job.reject(new Error('Chart bridge stopped.'));}});
+  server.on('close',()=>{for(const res of clients.values())res.end();for(const job of jobs.values()){clearTimeout(job.timer);job.reject(new Error('Chart bridge stopped.'));}for(const command of commands.values()){clearTimeout(command.timer);command.reject(new Error('Chart bridge stopped.'));}commands.clear();});
   return server;
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){

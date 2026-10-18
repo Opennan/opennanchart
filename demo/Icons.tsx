@@ -1,6 +1,7 @@
 // Opennan circuit mark and consistent line icons for the chart workspace.
 export function Logo(){return <svg viewBox="0 0 24 24" width="25" height="25" fill="none" aria-hidden="true"><path d="M17.66 17.66 A8 8 0 1 1 17.66 6.34" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><circle cx="12" cy="20" r="1.6" fill="currentColor"/><circle cx="4" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="4" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>;}
 const paths:Record<string,string>={
+  alert:'M12 3 2 21h20ZM12 9v5M12 17h.01',
   cursor:'M5 3 19 12 12 14 9 21Z M12 14 17 20',crosshair:'M12 2V7 M12 17V22 M2 12H7 M17 12H22 M8 8H16V16H8Z',
   trend:'M4 19 20 5 M4 16V19H7 M17 5H20V8',horizontal:'M3 12H21 M7 10V14',vertical:'M12 3V21 M10 7H14',fib:'M4 4H20 M4 9H20 M4 14H20 M4 20H20 M5 20 19 4',rectangle:'M4 5H20V19H4Z',circle:'M20 12A8 8 0 1 1 4 12A8 8 0 1 1 20 12',measure:'M5 4V20 M3 4H7 M3 20H7 M10 16H21 M10 14V18 M21 14V18 M11 7H20',position:'M4 4H20V20H4Z M4 12H20 M12 5V19',text:'M4 5H20 M12 5V20 M8 20H16',trash:'M4 6H20 M9 3H15 M6 6 7 21H17L18 6 M10 10V17 M14 10V17',
   code:'M8 6 2 12 8 18 M16 6 22 12 16 18 M14 3 10 21',play:'M7 4 20 12 7 20Z',stop:'M6 6H18V18H6Z',plus:'M12 4V20 M4 12H20',fit:'M8 3H3V8 M16 3H21V8 M21 16V21H16 M8 21H3V16 M8 8H16V16H8Z',download:'M12 3V16 M7 11 12 16 17 11 M4 17V21H20V17',upload:'M12 16V3 M7 8 12 3 17 8 M4 17V21H20V17',

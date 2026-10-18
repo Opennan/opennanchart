@@ -1,8 +1,45 @@
 # Opennanchart
 
+<a href="https://opennan.com/"><img src="https://opennan.com/logo-social.svg" width="64" height="64" alt="Opennan" /></a>
+
+Created and maintained by **[Opennan](https://opennan.com/)**.
+Company and original author credits are preserved in [CREDITS.md](CREDITS.md).
+
+[JavaScript API](docs/javascript-api.md) · [Pine-to-JavaScript](docs/pine-to-javascript.md) · [Custom tools](docs/custom-tools.md) · [MCP agent guide](docs/mcp.md)
+
 A dark, embeddable React/canvas candlestick chart with JavaScript indicators,
 next-open backtesting and an MCP bridge. Built from the original TradingReact
 chart, with Opennan's visual identity.
+
+## Create indicators in JavaScript
+
+Choose **Load example → Madrid Bull Bear Sentiment** for an oscillator in a
+separate pane, or **Bearish Engulfing** for yellow signal candles on the price
+chart. **Settings → Apply & run** edits numeric/checkbox inputs. The examples
+also include MACD columns, Donchian fills and Supertrend candle colors.
+
+```mermaid
+flowchart LR
+  Data[Inject OHLCV] --> Chart[Candles, scales and drawings]
+  JS[JavaScript indicator] --> Overlay[Price overlays and candle colors]
+  JS --> Pane[Separate indicator panes]
+  JS --> Events[Backtests and recorded alerts]
+  MCP[MCP agent] --> Docs[Read bundled API and examples]
+  Docs --> JS
+  MCP --> Tools[Create custom drawing tools]
+  Tools --> Chart
+```
+
+Plots support lines, opaque/translucent areas, histograms, columns, circles,
+crosses, dotted levels and per-bar colors. Scripts can color candles/backgrounds,
+draw signal shapes and fill between plots. Use `indicator({name, overlay:false})`
+for a separate pane. [Follow the JavaScript guide](docs/javascript-api.md) or
+[translate a Pine formula](docs/pine-to-javascript.md).
+
+The left rail groups related tools in pop-out menus. **Workspace settings** lets
+you hide/show each section; **Expand chart** opens a full-chart view. Escape or
+**Exit full chart** restores the previous layout. **Restore workspace** resets
+hidden sections. Settings are saved locally.
 
 ## Run locally
 
@@ -47,7 +84,7 @@ The package is prepared for npm distribution. Until a registry release exists,
 install directly from the public source (npm builds it through `prepare`):
 
 ```sh
-npm install github:thaithamtawan/opennanchart react react-dom
+npm install github:Opennan/opennanchart react react-dom
 ```
 
 Or build and install its local archive:
@@ -91,7 +128,7 @@ appends follow the end only if you were already viewing it.
 
 Other methods: `getData`, `resetScale`, `zoom`, `getVisibleRange`,
 `setVisibleRange`, `getDrawings`, `setDrawings`, `clearDrawings`, `runScript`,
-`clearScript` and `exportImage`. Plot results are snapshots: rerun a custom
+`clearScript`, `registerTool`, `getCustomTools` and `exportImage`. Plot results are snapshots: rerun a custom
 script after changing its data. Built-in workspace studies recalculate as
 candles change.
 
@@ -156,11 +193,11 @@ consecutive values. SMA and EMA periods are integers from 1 to 5,000.
 - `ta.crossover(a, b, key?)`, `ta.crossunder(a, b, key?)`
 - `strategy.entry('long' | 'short')`, `strategy.close()`
 - `strategy.position`, `strategy.equity`
-- `input.int(name, defaultValue, { min, max })`, `input.number(...)`
+- `input.int(name, defaultValue, { min, max, step, editable })`, `input.number(...)`, `input.bool(...)`
 - `log(...values)` for bounded, returned script logs.
 
 Plots accept a CSS color name, hex, rgb() or hsl() color and a `price` or
-`indicator` pane. A script can create 20 plots and 32 numeric inputs. Register
+`indicator` pane. A script can create 20 plots and 32 numeric or boolean inputs. Register
 one synchronous `onBar` callback. The last order requested on a bar wins.
 
 ```js
@@ -242,6 +279,10 @@ workspaces can use different bridge ports with `node server/serve.mjs --port 304
 | `chart_run_script` | Create plots or backtest using the browser sandbox. |
 | `chart_get_results` | Read plots, equity, trades and metrics. |
 | `chart_list_indicators` | Discover built-in studies and execution rules. |
+| `chart_get_documentation`, `chart_get_example` | Read bundled guides and runnable JS examples. |
+| `chart_update_parameters` | Rerun the current indicator with edited inputs. |
+| `chart_control` | Drawings, tools, custom tool registration, range, zoom and saved layouts. |
+| `chart_export_image` | Return a PNG of the price chart. |
 
 State and result tools return compact summaries by default. Request
 `includeCandles` or `includeSeries` explicitly for full arrays.
@@ -272,7 +313,7 @@ The demo also exposes `window.opennanchart` for local integration experiments.
 ```sh
 npm test                   # Deterministic math, execution and data checks
 npm run build              # Type checking, demo, library and declarations
-node tests/browser.mjs     # Real Chromium, compiled demo, REST and stdio MCP
+npm run test:browser       # Both real-browser, REST and stdio MCP suites
 npm pack                   # npm-installable archive
 ```
 
@@ -281,5 +322,5 @@ elsewhere (`npx playwright install chromium`). Set `PLAYWRIGHT_CHANNEL` to
 override the browser channel. Tests use isolated local bridge data and do not
 contact customers or place exchange orders.
 
-MIT licensed. Original attribution is retained in LICENSE and NOTICE. Bundled
+MIT licensed. [Opennan company credits](CREDITS.md) and original attribution are retained in LICENSE and NOTICE. Bundled
 dependency licenses are reproduced in THIRD_PARTY_NOTICES.md.

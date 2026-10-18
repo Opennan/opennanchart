@@ -1,5 +1,7 @@
 // Adapted from the user's original TradingReact canvas demo.
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import {drawPlots,drawSignalShape} from './visuals';
+import {renderCustomTool,hitCustomTool} from './custom-tools';
 
 // === SVG ICONS ===
 const SvgIcons = {
@@ -135,196 +137,38 @@ const TOOLS = [
     { type: 'BrushTool:Highlighter', iconKey: 'highlighter', group: 'Brush', hint: 'Highlighter' }
 ];
 
-const COLORS = ['#7dd3fc', '#ff5252', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4', '#ffeb3b', '#ffffff'];
+const COLORS = ['#7dd3fc', '#34d399', '#fb7185', '#fbbf24', '#c4b5fd', '#e8e8ea', '#a0a6b1', '#0a0c0f'];
 const LINE_WIDTHS = [1, 2, 3, 4, 5];
-
-// Store toolbox position globally so it persists
 let savedToolboxPos = { x: 12, y: 10 };
 
-// === DRAWING TOOLBOX ===
-function DrawingToolbox({ drawing, onUpdate, onDelete, onClose, chartRight }) {
-    if (!drawing) return null;
-
-    const [showColorPicker, setShowColorPicker] = useState(false);
-    const [showTextInput, setShowTextInput] = useState(false);
-    const [textValue, setTextValue] = useState(drawing.text || '');
-    const [pos, setPos] = useState(savedToolboxPos); // Use saved position
-    const [dragging, setDragging] = useState(false);
-    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-
-    const boxRef = useRef(null);
-    useEffect(() => {setTextValue(drawing.text || '');}, [drawing.id, drawing.text]);
-    useEffect(() => {
+// Self-contained Opennan styling also works when the chart is embedded alone.
+function DrawingToolbox({ drawing, onUpdate, onDelete, onClose }) {
+    const [panel,setPanel]=useState(null),[textValue,setTextValue]=useState(drawing.text||'');
+    const [pos,setPos]=useState(savedToolboxPos),boxRef=useRef(null),drag=useRef(null);
+    useEffect(()=>{setTextValue(drawing.text||'');setPanel(null);},[drawing.id,drawing.text]);
+    useEffect(()=>{
         const box=boxRef.current,parent=box?.parentElement;if(!box||!parent)return;
-        const clamp=()=>setPos(previous=>{const x=Math.max(8,Math.min(previous.x,parent.clientWidth-box.offsetWidth-8)),y=Math.max(8,Math.min(previous.y,parent.clientHeight-box.offsetHeight-8));return previous.x===x&&previous.y===y?previous:{x,y};});
-        const ro=new ResizeObserver(clamp);ro.observe(parent);ro.observe(box);clamp();return()=>ro.disconnect();
-    }, []);
-
-    const handleMouseDown = (e) => {
-        if (e.target.closest('button, select, input')) return;
-        e.preventDefault();
-        setDragging(true);
-        const rect = boxRef.current?.parentElement?.getBoundingClientRect();
-        const startX = e.clientX - (rect?.left || 0) - pos.x;
-        const startY = e.clientY - (rect?.top || 0) - pos.y;
-        setDragOffset({ x: startX, y: startY });
-    };
-
-    useEffect(() => {
-        if (!dragging) return;
-        const handleMouseMove = (e) => {
-            const parent = boxRef.current?.parentElement;
-            const box = boxRef.current;
-            if (!parent || !box) return;
-
-            const parentRect = parent.getBoundingClientRect();
-            const boxRect = box.getBoundingClientRect();
-
-            const newX = e.clientX - parentRect.left - dragOffset.x;
-            const newY = e.clientY - parentRect.top - dragOffset.y;
-
-            // Constrain within chart bounds
-            const maxX = parentRect.width - boxRect.width;
-            const maxY = parentRect.height - boxRect.height;
-
-            const newPos = {
-                x: Math.max(0, Math.min(newX, maxX)),
-                y: Math.max(0, Math.min(newY, maxY))
-            };
-            setPos(newPos);
-            savedToolboxPos = newPos; // Remember position
-        };
-        const handleMouseUp = () => setDragging(false);
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-        return () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-        };
-    }, [dragging, dragOffset]);
-
-    const handleColorChange = (color) => {
-        onUpdate({ ...drawing, color });
-        setShowColorPicker(false);
-    };
-
-    const handleWidthChange = (lineWidth) => {
-        onUpdate({ ...drawing, lineWidth });
-    };
-
-    const handleTextSave = () => {
-        onUpdate({ ...drawing, text: textValue });
-        setShowTextInput(false);
-    };
-
-    const handleShowPrice = () => {
-        onUpdate({ ...drawing, showPrice: !drawing.showPrice });
-    };
-
-    const boxStyle = {
-        position: 'absolute',
-        left: pos.x,
-        top: pos.y,
-        background: '#14191f',
-        border: '1px solid #4a4e59',
-        borderRadius: '6px',
-        padding: '8px',
-        display: 'flex',
-        flexWrap: 'wrap',
-        maxWidth: 'calc(100% - 16px)',
-        gap: '6px',
-        alignItems: 'center',
-        zIndex: 200,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-        cursor: dragging ? 'grabbing' : 'grab',
-        userSelect: 'none'
-    };
-
-    const btnStyle = {
-        background: '#19212b',
-        border: 'none',
-        borderRadius: '4px',
-        padding: '6px 10px',
-        cursor: 'pointer',
-        color: '#b2b5be',
-        fontSize: '12px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px'
-    };
-
-    return (
-        <div ref={boxRef} style={boxStyle} onMouseDown={handleMouseDown}>
-            {/* Drag handle indicator */}
-            <div style={{
-                width: 4, height: 20, background: '#354052', borderRadius: 2, marginRight: 4,
-                display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2
-            }}>
-                <div style={{ width: 4, height: 2, background: '#6a6e79', borderRadius: 1 }}/>
-                <div style={{ width: 4, height: 2, background: '#6a6e79', borderRadius: 1 }}/>
-                <div style={{ width: 4, height: 2, background: '#6a6e79', borderRadius: 1 }}/>
-            </div>
-            {/* Color button */}
-            <div style={{ position: 'relative' }}>
-                <button style={btnStyle} onClick={() => setShowColorPicker(!showColorPicker)} title="Color">
-                    <div style={{ width: 16, height: 16, background: drawing.color || '#7dd3fc', borderRadius: 3 }} />
-                </button>
-                {showColorPicker && (
-                    <div style={{ position: 'absolute', top: 36, left: 0, background: '#14191f', border: '1px solid #4a4e59', borderRadius: 4, padding: 6, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, zIndex: 201 }}>
-                        {COLORS.map(c => (
-                            <div key={c} onClick={() => handleColorChange(c)} style={{ width: 20, height: 20, background: c, borderRadius: 3, cursor: 'pointer', border: drawing.color === c ? '2px solid #fff' : 'none' }} />
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* Line width */}
-            <select
-                value={drawing.lineWidth || 2}
-                onChange={e => handleWidthChange(Number(e.target.value))}
-                style={{ ...btnStyle, padding: '4px 8px' }}
-                title="Line Width"
-            >
-                {LINE_WIDTHS.map(w => (
-                    <option key={w} value={w}>{w}px</option>
-                ))}
-            </select>
-
-            {/* Show price toggle */}
-            <button
-                style={{ ...btnStyle, background: drawing.showPrice ? '#4caf50' : '#19212b' }}
-                onClick={handleShowPrice}
-                title="Show Price"
-            >
-                $
-            </button>
-
-            {/* Text button */}
-            <div style={{ position: 'relative' }}>
-                <button style={btnStyle} onClick={() => setShowTextInput(!showTextInput)} title="Add Text">
-                    T
-                </button>
-                {showTextInput && (
-                    <div style={{ position: 'absolute', top: 36, left: -60, background: '#14191f', border: '1px solid #4a4e59', borderRadius: 4, padding: 8, zIndex: 201, width: 150 }}>
-                        <input
-                            type="text"
-                            value={textValue}
-                            onChange={e => setTextValue(e.target.value)}
-                            placeholder="Enter text..."
-                            style={{ width: '100%', padding: '4px 8px', border: '1px solid #4a4e59', borderRadius: 3, background: '#1e222d', color: '#fff', marginBottom: 6 }}
-                            autoFocus
-                        />
-                        <button onClick={handleTextSave} style={{ ...btnStyle, width: '100%', justifyContent: 'center' }}>Save</button>
-                    </div>
-                )}
-            </div>
-
-            {/* Delete button */}
-            <button style={{ ...btnStyle, color: '#ff5252' }} onClick={onDelete} title="Delete">
-                ✕
-            </button>
+        const clamp=()=>setPos(p=>{const x=Math.max(8,Math.min(p.x,parent.clientWidth-box.offsetWidth-8)),y=Math.max(8,Math.min(p.y,parent.clientHeight-box.offsetHeight-8));return p.x===x&&p.y===y?p:{x,y};});
+        const observer=new ResizeObserver(clamp);observer.observe(parent);observer.observe(box);clamp();return()=>observer.disconnect();
+    },[]);
+    const surface={background:'#11151a',color:'#e8e8ea',border:'1px solid #ffffff14',borderRadius:6};
+    const button={display:'grid',placeItems:'center',width:30,height:30,padding:0,border:0,borderRadius:4,background:'transparent',color:'#a0a6b1',cursor:'pointer',font:'12px system-ui'};
+    const icon=(path)=><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d={path}/></svg>;
+    const toggle=name=>setPanel(p=>p===name?null:name);
+    return <div ref={boxRef} role="region" aria-label="Drawing properties" style={{...surface,position:'absolute',left:pos.x,top:pos.y,maxWidth:'calc(100% - 16px)',zIndex:10,padding:5,font:'12px system-ui',userSelect:'none'}} onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();panel?setPanel(null):onClose();}}}>
+        <div style={{display:'flex',alignItems:'center',gap:3,flexWrap:'wrap'}}>
+            <button aria-label="Move drawing toolbar" title="Move drawing toolbar" style={{...button,width:18,cursor:'grab',touchAction:'none'}} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);drag.current={x:e.clientX-pos.x,y:e.clientY-pos.y};}} onPointerMove={e=>{if(!drag.current)return;const parent=boxRef.current.parentElement,box=boxRef.current;const next={x:Math.max(8,Math.min(e.clientX-drag.current.x,parent.clientWidth-box.offsetWidth-8)),y:Math.max(8,Math.min(e.clientY-drag.current.y,parent.clientHeight-box.offsetHeight-8))};savedToolboxPos=next;setPos(next);}} onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}}>{icon('M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01')}</button>
+            <button title="Color" aria-label="Drawing color" aria-expanded={panel==='color'} style={{...button,background:panel==='color'?'#ffffff09':'transparent'}} onClick={()=>toggle('color')}><span style={{width:15,height:15,borderRadius:3,background:drawing.color||'#7dd3fc',border:'1px solid #ffffff24'}}/></button>
+            <select title="Line Width" aria-label="Drawing line width" value={drawing.lineWidth||2} onChange={e=>onUpdate({...drawing,lineWidth:Number(e.target.value)})} style={{...button,width:53,padding:'0 4px',appearance:'auto'}}>{LINE_WIDTHS.map(w=><option key={w} value={w} style={{background:'#11151a'}}>{w}px</option>)}</select>
+            <span style={{width:1,height:17,background:'#ffffff14',margin:'0 2px'}}/>
+            <button title="Show Price" aria-label="Show drawing price" aria-pressed={!!drawing.showPrice} style={{...button,color:drawing.showPrice?'#7dd3fc':'#a0a6b1',background:drawing.showPrice?'#7dd3fc14':'transparent'}} onClick={()=>onUpdate({...drawing,showPrice:!drawing.showPrice})}>$</button>
+            <button title="Add Text" aria-label="Drawing label" aria-expanded={panel==='text'} style={{...button,color:panel==='text'?'#7dd3fc':'#a0a6b1'}} onClick={()=>toggle('text')}>{icon('M5 5h14M12 5v14M9 19h6')}</button>
+            <button title="Delete" aria-label="Delete drawing" style={{...button,color:'#fb7185'}} onClick={onDelete}>{icon('M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7')}</button>
+            <button title="Close drawing properties" aria-label="Close drawing properties" style={button} onClick={onClose}>{icon('M6 6l12 12M18 6L6 18')}</button>
         </div>
-    );
+        {panel==='color'&&<div role="group" aria-label="Drawing color palette" style={{borderTop:'1px solid #ffffff14',padding:'10px 4px 4px',display:'grid',gridTemplateColumns:'repeat(8,minmax(0,1fr))',gap:5}}>{COLORS.map(c=><button key={c} aria-label={`Set drawing color ${c}`} aria-pressed={drawing.color===c} onClick={()=>{onUpdate({...drawing,color:c});setPanel(null);}} style={{height:21,minWidth:18,padding:0,borderRadius:3,border:drawing.color===c?'2px solid #e8e8ea':'1px solid #ffffff20',background:c,cursor:'pointer'}}/>)}</div>}
+        {panel==='text'&&<form style={{borderTop:'1px solid #ffffff14',marginTop:4,padding:'10px 4px 4px',display:'flex',gap:7,flexWrap:'wrap'}} onSubmit={e=>{e.preventDefault();onUpdate({...drawing,text:textValue});setPanel(null);}}><label style={{flex:'1 1 140px',display:'grid',gap:6,color:'#a0a6b1',fontSize:11}}>Drawing label<input aria-label="Drawing label text" value={textValue} maxLength={500} onChange={e=>setTextValue(e.target.value)} style={{...surface,background:'#0a0c0f',width:'100%',minWidth:0,padding:'7px 8px',font:'12px system-ui'}}/></label><button type="submit" style={{...button,width:'auto',height:30,alignSelf:'end',background:'#e8edf2',color:'#10151b',padding:'0 12px',fontWeight:600}}>Save label</button></form>}
+    </div>;
 }
 
 // === TOOLBAR ===
@@ -589,7 +433,7 @@ function Toolbar({ tools, currentTool, height, colors, onSelect }) {
 }
 
 // === CHART ===
-function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onDrawUpdate, controlsRef, plots = [], markers = [], scaleMode = 'linear', chartStyle = 'candles', onViewChange, onHover, onDrawingsChange, dataVersion = 0 }) {
+function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onDrawUpdate, controlsRef, plots = [], markers = [], barColors = [], backgrounds = [], shapes = [], fills = [], customTools = [], scaleMode = 'linear', chartStyle = 'candles', onViewChange, onHover, onDrawingsChange, dataVersion = 0 }) {
     const canvasRef = useRef(null);
     const containerRef = useRef(null);
     const [drawings, setDrawings] = useState([]);
@@ -603,6 +447,7 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
     const previousLength = useRef(0);
 
     const ohlcv = data || [];
+    const customBarColors=useMemo(()=>new Map(barColors.map(p=>[p.index,p])),[barColors]);
     const barSpacing = useMemo(() => {
         const gaps=[];for(let i=Math.max(1,ohlcv.length-200);i<ohlcv.length;i++){const gap=ohlcv[i][0]-ohlcv[i-1][0];if(gap>0)gaps.push(gap);}gaps.sort((a,b)=>a-b);return gaps[Math.floor(gaps.length/2)] || 3600000;
     }, [ohlcv]);
@@ -690,6 +535,8 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
         let baseHi = -Infinity, baseLo = Infinity;
         vis.forEach(c => { baseHi = Math.max(baseHi, c[2]); baseLo = Math.min(baseLo, c[3]); });
         for (const plot of plots) if (plot.pane === 'price') for (const point of plot.values) if (point.index >= s && point.index < e && Number.isFinite(point.value) && (scaleMode !== 'log' || point.value > 0)) { baseHi = Math.max(baseHi, point.value); baseLo = Math.min(baseLo, point.value); }
+        for(const shape of shapes)if(shape.location==='absolute'&&shape.index>=s&&shape.index<e){baseHi=Math.max(baseHi,shape.price);baseLo=Math.min(baseLo,shape.price);}
+        if(scaleMode!=='log')for(const p of plots)if(p.pane==='price'&&['area','histogram','columns'].includes(p.style)&&p.values.some(v=>v.index>=s&&v.index<e)){baseHi=Math.max(baseHi,p.baseline??0);baseLo=Math.min(baseLo,p.baseline??0);}
         const basePad = Math.max((baseHi - baseLo) * 0.08, Math.abs(baseHi) * 0.001, 0.000001);
         baseHi += basePad; baseLo -= basePad;
         if (scaleMode === 'log') baseLo = Math.max(baseLo, Math.min(...vis.map(c => c[3])) * 0.5);
@@ -716,7 +563,7 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
             $2s: y$ => scaleMode === 'log' ? y$ > 0 ? (top - Math.log(y$)) / (top - bottom) * cH : NaN : ((hi - y$) / (hi - lo)) * cH,
             label: (price, precision = 2) => scaleMode === 'percent' ? ((price / reference - 1) * 100).toFixed(2) + '%' : price.toLocaleString('en-US', {minimumFractionDigits: Math.min(precision, 6), maximumFractionDigits: Math.min(precision, 6)})
         };
-    }, [width, height, viewRange, ohlcv, yTransform, plots, scaleMode]);
+    }, [width, height, viewRange, ohlcv, yTransform, plots, shapes, scaleMode]);
 
     const hitTest = useCallback((x, y, layout) => {
         if (!layout) return { d: null, pi: -1 };
@@ -724,12 +571,13 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
             const d = drawings[i];
             const pts = d.p.map(p => ({ x: layout.t2s(p.t), y: layout.$2s(p.y$) }));
 
-            if(d.type.includes('HorzLine')||d.type.includes('VertLine')||d.type.includes('CrossLine')){
+            if((d.type==='LineTool:HorzLine')||(d.type==='LineTool:VertLine')||(d.type==='LineTool:CrossLine')){
                 const p=pts[0];if(!p)continue;
                 if(Math.hypot(x-p.x,y-p.y)<=HANDLE_R+3)return {d,pi:0};
-                if((!d.type.includes('VertLine')&&Math.abs(y-p.y)<8)||(!d.type.includes('HorzLine')&&Math.abs(x-p.x)<8))return {d,pi:-1};
+                if((!(d.type==='LineTool:VertLine')&&Math.abs(y-p.y)<8)||(!(d.type==='LineTool:HorzLine')&&Math.abs(x-p.x)<8))return {d,pi:-1};
                 continue;
             }
+            const custom=customTools.find(t=>t.id===d.type);if(custom){for(let j=0;j<pts.length;j++)if(Math.hypot(x-pts[j].x,y-pts[j].y)<=HANDLE_R+3)return {d,pi:j};if(hitCustomTool(custom,pts,x,y))return {d,pi:-1};continue;}
             if(d.type==='ShapeTool:Circle'&&pts.length>=2){
                 for(let j=0;j<pts.length;j++)if(Math.hypot(x-pts[j].x,y-pts[j].y)<=HANDLE_R+3)return {d,pi:j};
                 const radius=Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y);
@@ -738,7 +586,7 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
             }
 
             // For Position tools - check extended handles and area
-            if (d.type.includes('PositionTool') && pts.length >= 2) {
+            if (d.type.startsWith('PositionTool:') && pts.length >= 2) {
                 const [p1, p2] = pts;
                 const entryY = p1.y;
                 const isLong = d.type.includes('Long');
@@ -782,7 +630,7 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
             }
         }
         return { d: null, pi: -1 };
-    }, [drawings]);
+    }, [drawings,customTools]);
 
     const ptLineDist = (px, py, a, b) => {
         const dx = b.x - a.x, dy = b.y - a.y, l2 = dx*dx + dy*dy;
@@ -839,6 +687,7 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
 
         // Volume
         ctx.save(); ctx.beginPath(); ctx.rect(0, 0, L.cW, L.cH); ctx.clip();
+        for(const b of backgrounds){if(b.index<L.s||b.index>viewRange.end)continue;ctx.fillStyle=b.color;ctx.fillRect(L.t2s(b.index),0,L.cW2+.5,L.cH);}
         const maxVol = Math.max(1, ...L.vis.map(c => c[5]));
         L.vis.forEach((c, i) => {
             const x = (i + startOffset) * L.cW2, volH = (c[5] / maxVol) * 40;
@@ -859,29 +708,25 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
             if(chartStyle === 'heikin-ashi'){const close=(original[1]+original[2]+original[3]+original[4])/4,open=i===0?(original[1]+original[4])/2:(haOpen+haClose)/2;haOpen=open;haClose=close;c=[original[0],open,Math.max(original[2],open,close),Math.min(original[3],open,close),close,original[5]];}
             const x = (i + startOffset) * L.cW2 + L.cW2 / 2;
             const green = c[4] >= c[1];
-            const col = green ? colors.up : colors.dw;
-            ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(x, p2y(c[2])); ctx.lineTo(x, p2y(c[3])); ctx.stroke();
+            const custom=customBarColors.get(L.s+i),col=custom?.color??(green ? colors.up : colors.dw);
+            ctx.strokeStyle = custom?.wickColor??col; ctx.beginPath(); ctx.moveTo(x, p2y(c[2])); ctx.lineTo(x, p2y(c[3])); ctx.stroke();
             ctx.fillStyle = col;
             const bw = Math.max(L.cW2 * 0.7, 1);
             const yo = p2y(c[1]), yc = p2y(c[4]);
             ctx.fillRect(x - bw/2, Math.min(yo, yc), bw, Math.max(Math.abs(yc - yo), 1));
+            if(custom?.borderColor){ctx.strokeStyle=custom.borderColor;ctx.strokeRect(x-bw/2,Math.min(yo,yc),bw,Math.max(Math.abs(yc-yo),1));}
         });
 
         // Script plots and actual order fills share the chart's time and price scales.
-        for(const series of plots) {
-            if(series.pane !== 'price') continue;
-            ctx.beginPath();ctx.strokeStyle=series.color;ctx.lineWidth=1.5;
-            let started=false,lastIndex=-2;
-            for(const point of series.values){if(point.index < L.s-1 || point.index > viewRange.end+1)continue;const x=L.t2s(point.index)+L.cW2/2,y=L.$2s(point.value);if(!Number.isFinite(y)){started=false;continue;}if(!started || point.index>lastIndex+1)ctx.moveTo(x,y);else ctx.lineTo(x,y);started=true;lastIndex=point.index;}
-            ctx.stroke();
-        }
+        drawPlots(ctx,plots.filter(p=>p.pane==='price'),fills,{x:i=>L.t2s(i)+L.cW2/2,y:L.$2s,start:L.s,end:viewRange.end,barWidth:L.cW2,top:0,bottom:L.cH});
+        for(const s of shapes){if(s.index<L.s||s.index>viewRange.end)continue;const bar=ohlcv[s.index],x=L.t2s(s.index)+L.cW2/2,y=s.location==='absolute'?L.$2s(s.price):L.$2s(bar?.[s.location==='belowbar'?3:2])+(s.location==='belowbar'?s.size+9:-s.size-9);if(Number.isFinite(y))drawSignalShape(ctx,s,x,y);}
         for(const marker of markers){if(marker.index < L.s || marker.index > viewRange.end)continue;const x=L.t2s(marker.index)+L.cW2/2,buy=marker.side==='buy',bar=ohlcv[marker.index],y=L.$2s(bar?.[buy?3:2]??marker.price)+(buy?13:-13);ctx.fillStyle=buy?colors.up:colors.dw;ctx.beginPath();ctx.moveTo(x,y+(buy?-5:5));ctx.lineTo(x-4,y+(buy?3:-3));ctx.lineTo(x+4,y+(buy?3:-3));ctx.closePath();ctx.fill();}
 
         // Drawings
         drawings.forEach(d => {
             // Check if cursor is hovering over this drawing (for Position tools)
             let isHovered = false;
-            if (d.type.includes('PositionTool') && d.p.length >= 2 && cursor.visible) {
+            if (d.type.startsWith('PositionTool:') && d.p.length >= 2 && cursor.visible) {
                 const isLong = d.type.includes('Long');
                 const entryY = L.$2s(d.p[0].y$);
                 const slY = d.p.length > 1 ? L.$2s(d.p[1].y$) : (isLong ? entryY + 50 : entryY - 50);
@@ -1023,7 +868,7 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
         }
 
         ctx.textAlign = 'left';
-    }, [ohlcv, viewRange, cursor, colors, width, height, drawings, wipDrawing, selectedId, getLayout, plots, markers, chartStyle, barSpacing]);
+    }, [ohlcv, viewRange, cursor, colors, width, height, drawings, wipDrawing, selectedId, getLayout, plots, markers, customBarColors, backgrounds, shapes, fills, customTools, chartStyle, barSpacing]);
 
     const renderDrawing = (ctx, d, L, sel, preview = false, hovered = false) => {
         const col = sel ? '#7dd3fc' : (d.color || '#7dd3fc');
@@ -1045,7 +890,9 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
             ctx.beginPath();
 
             // Brush tools (check first since they're simple)
-            if (d.type.includes('BrushTool')) {
+            const custom=customTools.find(t=>t.id===d.type);
+            if(custom){renderCustomTool(ctx,custom,pts,L.cW,L.cH,col,lw);
+            } else if (d.type.startsWith('BrushTool:')) {
                 ctx.strokeStyle = '#ff0000';  // Bright red for visibility
                 ctx.lineWidth = 5;  // Thick line
                 if (d.type.includes('Highlighter')) {
@@ -1081,17 +928,17 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
                 ctx.moveTo(p2.x, p2.y);
                 ctx.lineTo(p2.x - headLen * Math.cos(angle + Math.PI/6), p2.y - headLen * Math.sin(angle + Math.PI/6));
                 ctx.stroke();
-            } else if (d.type.includes('HorzLine')) {
+            } else if ((d.type==='LineTool:HorzLine')) {
                 ctx.moveTo(0, p1.y); ctx.lineTo(L.cW, p1.y); ctx.stroke();
-            } else if (d.type.includes('VertLine')) {
+            } else if ((d.type==='LineTool:VertLine')) {
                 ctx.moveTo(p1.x, 0); ctx.lineTo(p1.x, L.cH); ctx.stroke();
-            } else if (d.type.includes('CrossLine')) {
+            } else if ((d.type==='LineTool:CrossLine')) {
                 ctx.moveTo(0, p1.y); ctx.lineTo(L.cW, p1.y);
                 ctx.moveTo(p1.x, 0); ctx.lineTo(p1.x, L.cH);
                 ctx.stroke();
 
             // Range tools
-            } else if (d.type.includes('RangeTool:Price')) {
+            } else if (d.type==='RangeTool:Price') {
                 ctx.setLineDash([2, 2]);
                 ctx.moveTo(0, p1.y); ctx.lineTo(L.cW, p1.y);
                 ctx.moveTo(0, p2.y); ctx.lineTo(L.cW, p2.y);
@@ -1562,12 +1409,12 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
             ctx.globalAlpha = 1;
 
             // Show price labels when enabled or selected (for line tools)
-            if ((d.showPrice || sel) && d.type.includes('LineTool')) {
+            if ((d.showPrice || sel) && d.type.startsWith('LineTool:')) {
                 drawPriceLabel(ctx, d.type, p1, p2, pr1, pr2, col, L);
             }
 
             // Draw text if present (for non-text tools)
-            if (d.text && !d.type.includes('TextTool')) {
+            if (d.text && !d.type.startsWith('TextTool:')) {
                 ctx.font = '12px Arial';
                 ctx.fillStyle = col;
                 ctx.textAlign = 'center';
@@ -1579,8 +1426,8 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
 
         // Draw handles (skip for tools with custom handles)
         ctx.setLineDash([]); ctx.globalAlpha = 1;
-        if (!d.type.includes('TextTool:Text') && !d.type.includes('TextTool:Note') && !d.type.includes('PositionTool')) {
-            (d.type.includes('HorzLine')||d.type.includes('VertLine')||d.type.includes('CrossLine')?pts.slice(0,1):pts).forEach(p => {
+        if ((sel || preview) && !d.type.includes('TextTool:Text') && !d.type.includes('TextTool:Note') && !d.type.startsWith('PositionTool:')) {
+            ((d.type==='LineTool:HorzLine')||(d.type==='LineTool:VertLine')||(d.type==='LineTool:CrossLine')?pts.slice(0,1):pts).forEach(p => {
                 ctx.beginPath(); ctx.arc(p.x, p.y, sel ? HANDLE_R : 4, 0, Math.PI * 2);
                 ctx.fillStyle = sel ? '#7dd3fc' : col; ctx.fill();
                 if (sel) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke(); }
@@ -1596,10 +1443,10 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
         const midX = (p1.x + p2.x) / 2;
         const midY = (p1.y + p2.y) / 2;
 
-        if (type.includes('HorzLine')||type.includes('VertLine')||type.includes('CrossLine')) {
-            const label=type.includes('VertLine')?'':L.label(pr1);if(label){ctx.fillStyle=col;ctx.fillText(label,p1.x+10,p1.y-10);}return;
+        if ((type==='LineTool:HorzLine')||(type==='LineTool:VertLine')||(type==='LineTool:CrossLine')) {
+            const label=(type==='LineTool:VertLine')?'':L.label(pr1);if(label){ctx.fillStyle=col;ctx.fillText(label,p1.x+10,p1.y-10);}return;
         }
-        if (type.includes('LineTool')) {
+        if (type.startsWith('LineTool:')) {
             const lbl1 = pr1.toFixed(2);
             const lbl2 = pr2.toFixed(2);
 
@@ -1672,7 +1519,7 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
         }
 
         if (tool !== 'Cursor') {
-            if(tool.includes('HorzLine')||tool.includes('VertLine')||tool.includes('CrossLine')){
+            if((tool==='LineTool:HorzLine')||(tool==='LineTool:VertLine')||(tool==='LineTool:CrossLine')){
                 const point={t,y$};setDrawings(previous=>[...previous,{id:crypto.randomUUID(),type:tool,p:[point,{...point}],color:'#7dd3fc',lineWidth:2,showPrice:false,text:''}]);setWipDrawing(null);onToolChange?.('Cursor');return;
             }
             if (!wipDrawing) {
@@ -1681,7 +1528,7 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
                 let finished = { ...wipDrawing, p: [...wipDrawing.p, { t, y$ }] };
 
                 // For Position tools, add 3rd point for TP with default 2:1 RR
-                if (tool.includes('PositionTool')) {
+                if (tool.startsWith('PositionTool:')) {
                     const entryPrice = wipDrawing.p[0].y$;
                     const clickPrice = y$;
                     const isLong = tool.includes('Long');
@@ -1769,7 +1616,7 @@ function Chart({ data, width, height, colors, tool = 'Cursor', onToolChange, onD
 
                 // Special handling for Position tool handles (pi 10-13)
                 // p[0] = entry, p[1] = SL, p[2] = TP (independent, not fixed RR)
-                if (d.type.includes('PositionTool') && drag.pi >= 10) {
+                if (d.type.startsWith('PositionTool:') && drag.pi >= 10) {
                     const handleIdx = drag.pi - 10; // 0=left, 1=right, 2=top, 3=bottom
                     const isLong = d.type.includes('Long');
 

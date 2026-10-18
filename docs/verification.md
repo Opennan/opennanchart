@@ -3,11 +3,12 @@
 Verified locally on 2026-10-18 with Node, a production Vite build and headless
 Chrome. No customer messages or exchange orders were sent.
 
-- `npm test`: 22 passing tests covering indicator math, next-open fills, fees,
+- `npm test`: 30 passing tests covering indicator math, next-open fills, fees,
   slippage, data/import validation and result schemas.
 - `npm run build`: passes TypeScript checks and builds the workspace, ES module,
   standalone browser bundle and declarations.
-- `node tests/browser.mjs`: 32 passing browser/integration checks, with no runtime
+- `npm run test:browser`: 50 passing browser/integration checks (32 existing
+  regressions and 18 extended feature checks), with no runtime
   page errors. Uses the compiled workspace, real HTTP/SSE bridge, actual stdio
   MCP client/server and browser script sandbox. Chart data is deterministic test
   fixtures; external Binance availability is not covered.
@@ -19,15 +20,27 @@ Chrome. No customer messages or exchange orders were sent.
 - The reconnect race regression delays delivery of a real SSE hello message to
   force a stream tick between connection opening and state synchronization.
   It verifies that browser and bridge retain identical candles and results.
+- Extended checks exercise every exposed drawing tool and its property editor;
+  Madrid's real canvas areas/circles/dotted levels; engulfing's yellow candles
+  and recorded alerts; typed, locked and invalid input recovery; editor/agent
+  source isolation; parameter/cost retention after streaming; named pane
+  alignment under scrollbars; saved layout and full-chart restoration; custom
+  tools; MCP documentation/resources/prompts; direct command consistency and
+  actual image export. The >4 MB image transport boundary uses a real PNG with
+  deterministic random pixels as a fixture, rather than a market-data chart.
+- A separate real stdio smoke check starts MCP from a directory without `dist`
+  and reads bundled docs/examples, verifying development use before a build.
 - `npm audit --omit=dev`: no reported production dependency vulnerabilities at
   verification time.
 
-Claude Code independently reviewed the implementation in three read-only
-passes. Confirmed findings were fixed, including worker result validation in a
+Claude Code independently reviewed the initial implementation in three read-only
+passes and the extended features in two further passes. Confirmed findings were
+fixed and covered by regressions, including worker result validation in a
 separate realm, future-data access through caller reflection, editor draft
 preservation, reconnect ordering, offline state/results, streaming snapshots,
-drawing hit tests and timestamp labels. The final reported reconnect race was
-fixed and verified by the regression above. This is a code review, not a claim
+drawing hit tests, timestamp labels, parameter/source isolation, persistent run
+options, custom tool names, responsive layouts, pane alignment and command
+exports. This is a code review, not a claim
 of complete TradingView feature parity.
 
 The release includes MIT attribution and bundled dependency license notices.

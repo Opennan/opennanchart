@@ -1,29 +1,34 @@
 // Public React chart and imperative JavaScript data API.
 import React,{forwardRef,useCallback,useEffect,useImperativeHandle,useMemo,useRef,useState} from 'react';
 import {LegacyCanvasChart,TOOLS} from './LegacyCanvas';
+import {PlotPane} from './PlotPane';
 import {normalizeCandles,normalizeCandle,toTuples,updateCandle} from '../data';
+import {validateCustomTool} from '../../shared/tools.mjs';
 import {runSandboxedScript} from '../scripting/sandbox';
-import type {BacktestOptions,Candle,CandleInput,ChartStyle,Drawing,ScaleMode,ScriptResult,ViewRange} from '../types';
+import type {BacktestOptions,CustomToolDefinition,Candle,CandleInput,ChartStyle,Drawing,ScaleMode,ScriptResult,ViewRange} from '../types';
 
 export const DARK_COLORS={back:'#0a0c0f',grid:'#171c23',text:'#a0a6b1',up:'#34d399',dw:'#fb7185',cross:'#647083',volUp:'#34d39930',volDw:'#fb718530'};
 interface CanvasControls {fitContent:()=>void;resetScale:()=>void;zoom:(factor:number)=>void;getVisibleRange:()=>ViewRange;setVisibleRange:(r:ViewRange)=>void;getDrawings:()=>Drawing[];setDrawings:(items:Drawing[])=>void;clearDrawings:()=>void;exportImage:()=>string|undefined}
 export interface OpenNanChartHandle {
   setData:(data:readonly CandleInput[])=>void;getData:()=>Candle[];updateCandle:(candle:CandleInput)=>void;appendData:(candles:readonly CandleInput[])=>void;
   fitContent:()=>void;resetScale:()=>void;zoom:(factor:number)=>void;setScaleMode:(mode:ScaleMode)=>void;setChartStyle:(style:ChartStyle)=>void;setTool:(tool:string)=>void;
+  registerTool:(definition:CustomToolDefinition)=>void;getCustomTools:()=>CustomToolDefinition[];
   getVisibleRange:()=>ViewRange;setVisibleRange:(range:ViewRange)=>void;getDrawings:()=>Drawing[];setDrawings:(items:Drawing[])=>void;clearDrawings:()=>void;
   runScript:(source:string,options?:BacktestOptions)=>Promise<ScriptResult>;clearScript:()=>void;exportImage:()=>string|undefined;
 }
 export interface OpenNanChartProps {
   data?:readonly CandleInput[];height?:number|string;scaleMode?:ScaleMode;chartStyle?:ChartStyle;activeTool?:string;
-  result?:ScriptResult|null;colors?:Partial<typeof DARK_COLORS>;
+  result?:ScriptResult|null;colors?:Partial<typeof DARK_COLORS>;showIndicatorPanes?:boolean;
+  onCustomToolsChange?:(tools:CustomToolDefinition[])=>void;
   onToolChange?:(tool:string)=>void;onDataChange?:(candles:Candle[],change:{reset:boolean})=>void;onHover?:(candle:Candle)=>void;
   onViewChange?:(range:ViewRange)=>void;onDrawingsChange?:(items:Drawing[])=>void;onScaleChange?:(state:{auto:boolean;zoom:number;offset:number})=>void;
 }
 const Canvas=LegacyCanvasChart as React.ComponentType<any>;
 const EMPTY:CandleInput[]=[];
-export const OpenNanChart=forwardRef<OpenNanChartHandle,OpenNanChartProps>(function OpenNanChart({data=EMPTY,height='100%',scaleMode='linear',chartStyle='candles',activeTool,result,colors,onToolChange,onDataChange,onHover,onViewChange,onDrawingsChange,onScaleChange},ref){
+export const OpenNanChart=forwardRef<OpenNanChartHandle,OpenNanChartProps>(function OpenNanChart({data=EMPTY,height='100%',scaleMode='linear',chartStyle='candles',activeTool,result,colors,showIndicatorPanes=true,onToolChange,onCustomToolsChange,onDataChange,onHover,onViewChange,onDrawingsChange,onScaleChange},ref){
   const [rows,setRows]=useState(()=>normalizeCandles(data)),rowsRef=useRef(rows),lastProp=useRef(data);
   const [version,setVersion]=useState(0),[scale,setScale]=useState<ScaleMode>(scaleMode),[style,setStyle]=useState<ChartStyle>(chartStyle),[ownResult,setOwnResult]=useState<ScriptResult|null>(null);
+  const [customTools,setCustomTools]=useState<CustomToolDefinition[]>([]),customToolsRef=useRef(customTools);
   const [selectedTool,setSelectedTool]=useState(activeTool??'Cursor');
   const container=useRef<HTMLDivElement>(null),controls=useRef<CanvasControls|null>(null),[size,setSize]=useState({width:0,height:0}),run=useRef<AbortController|null>(null);
   const pendingFit=useRef(false),renderedRows=useRef(rows);renderedRows.current=rows;
@@ -43,7 +48,8 @@ export const OpenNanChart=forwardRef<OpenNanChartHandle,OpenNanChartProps>(funct
     zoom:factor=>{if(!Number.isFinite(factor)||factor<=0)throw new Error('Zoom factor must be positive.');controls.current?.zoom(factor);},
     setScaleMode:mode=>{if(!['linear','log','percent'].includes(mode))throw new Error('Unknown scale mode.');setScale(mode);},
     setChartStyle:mode=>{if(!['candles','line','area','heikin-ashi'].includes(mode))throw new Error('Unknown chart style.');setStyle(mode);},
-    setTool:tool=>{if(tool==='Crosshair')tool='Cursor';if(!TOOLS.some(t=>t.type===tool))throw new Error('Unknown drawing tool.');setSelectedTool(tool);onToolChange?.(tool);},
+    setTool:tool=>{if(tool==='Crosshair')tool='Cursor';if(!TOOLS.some(t=>t.type===tool)&&!customToolsRef.current.some(t=>t.id===tool))throw new Error('Unknown drawing tool.');setSelectedTool(tool);onToolChange?.(tool);},
+    registerTool:definition=>{const clean=validateCustomTool(definition),next=customToolsRef.current.filter(t=>t.id!==clean.id);if(next.length>=20)throw new Error('Use at most 20 custom tools.');next.push(clean);customToolsRef.current=next;setCustomTools(next);onCustomToolsChange?.(structuredClone(next));},getCustomTools:()=>structuredClone(customToolsRef.current),
     getVisibleRange:()=>controls.current?.getVisibleRange()??{start:0,end:0},setVisibleRange:r=>controls.current?.setVisibleRange(r),
     getDrawings:()=>controls.current?.getDrawings()??[],
     setDrawings:items=>{
@@ -54,7 +60,7 @@ export const OpenNanChart=forwardRef<OpenNanChartHandle,OpenNanChartProps>(funct
     clearDrawings:()=>controls.current?.clearDrawings(),
     runScript:async(source,options)=>{run.current?.abort();const controller=new AbortController();run.current=controller;const snapshot=rowsRef.current,version=datasetVersion.current;const output=await runSandboxedScript(snapshot,source,options,{signal:controller.signal});if(controller.signal.aborted||version!==datasetVersion.current)throw new Error('Chart data was replaced during the script run.');setOwnResult(output);return output;},
     clearScript:()=>{run.current?.abort();setOwnResult(null);},exportImage:()=>controls.current?.exportImage(),
-  }),[commit,onToolChange]);
+  }),[commit,onToolChange,onCustomToolsChange]);
   const tuples=useMemo(()=>{
     const values=toTuples(rows);if(style!=='heikin-ashi')return values;
     let previousOpen=values[0]?.[1]??0,previousClose=values[0]?.[4]??0;
@@ -64,8 +70,13 @@ export const OpenNanChart=forwardRef<OpenNanChartHandle,OpenNanChartProps>(funct
   const handleHover=useCallback((index:number)=>{if(rows[index])onHover?.({...rows[index]});},[rows,onHover]);
   const handleScale=useCallback((_count:number,_selected:string|null,state:{auto:boolean;zoom:number;offset:number})=>onScaleChange?.(state),[onScaleChange]);
   const output=result===undefined?ownResult:result;
+  const [paneRange,setPaneRange]=useState<ViewRange>({start:0,end:100});
+  const handleRange=useCallback((range:ViewRange)=>{setPaneRange(range);onViewChange?.(range);},[onViewChange]);
+  const panes=useMemo(()=>{const groups=new Map<string,NonNullable<ScriptResult['plots']>>();if(showIndicatorPanes)for(const p of output?.plots??[])if(p.pane==='indicator'){const name=p.paneId??'Indicator';groups.set(name,[...(groups.get(name)??[]),p]);}return [...groups];},[output,showIndicatorPanes]);
+  const paneHeight=Math.min(size.height*.45,panes.length*125),priceHeight=Math.max(120,size.height-paneHeight);
   const effectiveTool=(activeTool??selectedTool)==='Crosshair'?'Cursor':(activeTool??selectedTool);
-  return <div ref={container} style={{height,width:'100%',minWidth:0,minHeight:120,background:palette.back,position:'relative',overflow:'hidden'}} data-opennanchart="true">
-    {rows.length===0?<div style={{height:'100%',display:'grid',placeItems:'center',color:palette.text,font:'13px system-ui'}}>Inject candles with setData() to start charting.</div>:size.width>80&&size.height>40&&<Canvas data={tuples} width={size.width} height={size.height} colors={palette} tool={effectiveTool} onToolChange={(tool:string)=>{setSelectedTool(tool);onToolChange?.(tool);}} onDrawUpdate={handleScale} controlsRef={controls} plots={output?.plots??[]} markers={output?.markers??[]} scaleMode={scale} chartStyle={style==='heikin-ashi'?'candles':style} onViewChange={onViewChange} onHover={handleHover} onDrawingsChange={onDrawingsChange} dataVersion={version}/>}
+  return <div ref={container} style={{height,width:'100%',minWidth:0,minHeight:120,background:palette.back,position:'relative',overflow:'hidden',display:'flex',flexDirection:'column'}} data-opennanchart="true">
+    {rows.length===0?<div style={{height:'100%',display:'grid',placeItems:'center',color:palette.text,font:'13px system-ui'}}>Inject candles with setData() to start charting.</div>:size.width>80&&size.height>40&&<Canvas data={tuples} width={size.width} height={priceHeight} colors={palette} tool={effectiveTool} onToolChange={(tool:string)=>{setSelectedTool(tool);onToolChange?.(tool);}} onDrawUpdate={handleScale} controlsRef={controls} plots={output?.plots??[]} markers={output?.markers??[]} barColors={output?.barColors??[]} backgrounds={output?.backgrounds??[]} shapes={output?.shapes??[]} fills={output?.fills??[]} customTools={customTools} scaleMode={scale} chartStyle={style==='heikin-ashi'?'candles':style} onViewChange={handleRange} onHover={handleHover} onDrawingsChange={onDrawingsChange} dataVersion={version}/>}
+    {rows.length>0&&panes.length>0&&<div style={{height:paneHeight,flexShrink:0,overflowY:'auto',overflowX:'hidden'}}>{panes.map(([name,plots])=><PlotPane canvasWidth={size.width} key={name} label={name} plots={plots} fills={output?.fills} range={paneRange} height={125}/>)}</div>}
   </div>;
 });

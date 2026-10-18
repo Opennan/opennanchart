@@ -5,3 +5,4 @@ dist/
 test-results/
 *.tgz
 .claude-review*
+WORK_NOTES.md

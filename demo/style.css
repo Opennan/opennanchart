@@ -11,3 +11,30 @@
 @media(max-width:1100px){.bridge-status{display:none}.style-select select{max-width:76px}.chart-toolbar{gap:7px}.chart-toolbar .toolbar-divider{margin:0 1px}.feed-button{font-size:0;gap:0;padding:6px}.feed-button svg{width:16px;height:16px}.chart-legend{gap:8px}.ohlcv{gap:8px}.interaction-hint{display:none}.script-layout{grid-template-columns:minmax(0,1fr) 210px}.metrics-row{gap:20px}.metrics-row>div{min-width:100px}.draft-status{margin-right:0}}
 @media(max-width:760px){.workspace{height:100dvh;min-height:760px;grid-template-rows:49px 44px minmax(300px,1fr) minmax(285px,37vh)}.app-header{padding:0 12px;gap:12px}.brand{font-size:16px}.brand svg{width:23px}.app-header .docs-button{font-size:0;gap:0;border:0}.app-header .docs-button svg{width:18px;height:18px}.chart-toolbar{gap:7px;padding:0 7px}.instrument .coin{display:none}.instrument button>span,.instrument button>svg{display:none}.instrument strong{font-size:11px}.chart-toolbar .toolbar-divider{display:none}.timeframes{gap:0}.timeframes button{min-width:25px;font-size:10px}.chart-toolbar>.subtle-button>span:not(.count){display:none}.chart-toolbar>.subtle-button{padding:5px 7px}.style-select select{max-width:19px;font-size:0}.style-select{gap:3px}.style-select option{font-size:12px}.feed-button{display:none}.drawing-rail{width:40px;padding:8px 0;gap:3px}.drawing-rail>button{width:31px;height:30px}.drawing-rail>button.rail-group{margin-top:4px}.chart-legend{top:10px;left:10px;gap:7px}.price-caption{font-size:10px;flex-basis:100%;gap:5px}.price-caption strong{font-size:11px}.ohlcv{font-size:9px;gap:6px}.ohlcv>span{gap:3px}.ohlcv>span:last-child{display:none}.plot-legend{top:48px;left:10px;font-size:9px;gap:12px}.plot-legend b{display:none}.chart-watermark>span{font-size:28px}.chart-watermark>svg{width:34px}.chart-status{padding:0 8px;font-size:9px;gap:10px}.chart-status select{max-width:90px}.panel-tabs{padding:0 7px;gap:0;height:42px}.panel-tabs>[role=tab]{font-size:0;gap:0;width:37px;padding:0;justify-content:center}.panel-tabs>[role=tab].selected:after{left:7px;right:7px}.panel-tabs>[role=tab] .count{display:none}.panel-tabs>.primary-button{font-size:11px;padding:5px 8px;gap:5px}.key-hint,.draft-status,.settings-label{display:none}.panel-tabs>.subtle-button{padding:5px 7px}.script-layout{display:block}.script-inspector{display:none}.editor-column{height:100%}.editor-toolbar{height:30px;padding-left:13px}.code-editor .cm-scroller{font-size:11px}.panel-status{font-size:9px;padding:0 9px;gap:7px}.panel-status>span:nth-last-child(1),.panel-status .footer-separator{display:none}.api-panel{grid-template-columns:1fr;padding:17px;gap:20px}.script-reference{grid-column:1}.empty-panel{gap:13px;justify-content:flex-start;padding:20px}.empty-panel h3{font-size:13px}.empty-panel p{font-size:10px}.metrics-row{gap:20px;padding:15px 17px}.metrics-row>div{min-width:80px}.metrics-row strong{font-size:16px}.result-footnote{font-size:9px;line-height:1.7;gap:12px}.dialog-head{padding:13px 15px}.dialog-body{padding:15px}.dialog h2{font-size:16px}.data-source-row{gap:9px;flex-wrap:wrap}.data-source-row>div{flex-basis:100%;margin-bottom:4px}.dialog-actions{gap:10px}.dialog-actions>button:first-child{margin-right:0}.settings-grid{gap:13px}.chart-navigation{opacity:1;bottom:34px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* Group drawing tools so the rail never needs a scrollbar. */
+.drawing-rail{overflow:hidden;padding:8px 0;gap:3px;width:48px}
+.drawing-rail>button,.rail-tool-group{height:30px;min-height:30px;flex-shrink:0}
+.drawing-rail>button{width:34px}
+.rail-tool-group{display:flex;position:relative;width:42px;border-radius:5px;color:#a3acba}
+.rail-tool-group>button{height:30px;display:grid;place-items:center;position:relative;width:30px;border-radius:4px}
+.rail-tool-group>.tool-group-trigger{width:12px;color:#7c8795}
+.rail-tool-group.active{background:#7dd3fc14}
+.rail-tool-group button:hover{background:#ffffff09;color:#e8e8ea}
+.rail-tool-group .tool-group-trigger svg{transform:rotate(-90deg)}
+.tool-popover{position:fixed;inset:auto;margin:0;padding:5px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:#e8e8ea;min-width:190px}
+.tool-popover::backdrop{background:transparent}
+.tool-popover>button{display:flex;align-items:center;width:100%;height:36px;padding:0 10px;gap:11px;border-radius:4px;font-size:12px;text-align:left;color:#aeb6c2}
+.tool-popover>button:hover{background:#ffffff08;color:#e8e8ea}
+.tool-popover>button>span{flex:1}
+.indicator-panes{flex-shrink:0;max-height:45%;overflow-y:auto;overflow-x:hidden}
+.layout-restores{position:fixed;right:12px;top:12px;z-index:8;display:flex;gap:5px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px}
+.layout-options{display:grid;gap:14px}.layout-options>label{display:flex;justify-content:space-between;align-items:center;gap:20px;font-size:12px;color:#c7cbd3}.layout-options input{accent-color:var(--accent)}
+@media(max-width:760px){.drawing-rail{width:40px}.rail-tool-group{width:36px}.rail-tool-group>button{width:26px}.rail-tool-group>.tool-group-trigger{width:10px}.drawing-rail>button{width:31px}.workspace.full-chart{min-height:0}.layout-restores .subtle-button{font-size:11px;padding:4px 7px}.panel-tabs>[role=tab]{width:31px}}
+
+.tool-popover{max-height:min(360px,calc(100dvh - 16px));overflow-y:auto;overflow-x:hidden}.settings-grid input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}.settings-grid small{font-size:10px;color:var(--muted)}.workspace.full-chart{min-height:0}
+
+.workspace{--header-height:53px;--toolbar-height:44px;--chart-min-height:285px;--editor-row:minmax(270px,35vh)}
+.layout-restores.restore-row{position:static;justify-content:flex-end;width:100%;border:0;border-bottom:1px solid var(--border);border-radius:0;background:var(--chrome);padding:4px 12px}
+@media(min-width:1600px){.workspace{--header-height:57px;--toolbar-height:46px}}
+@media(max-width:760px){.workspace{--header-height:49px;--chart-min-height:300px;--editor-row:minmax(285px,37vh)}}
