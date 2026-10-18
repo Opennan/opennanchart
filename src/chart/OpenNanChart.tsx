@@ -16,7 +16,7 @@ export interface OpenNanChartHandle {
 export interface OpenNanChartProps {
   data?:readonly CandleInput[];height?:number|string;scaleMode?:ScaleMode;chartStyle?:ChartStyle;activeTool?:string;
   result?:ScriptResult|null;colors?:Partial<typeof DARK_COLORS>;
-  onToolChange?:(tool:string)=>void;onDataChange?:(candles:Candle[])=>void;onHover?:(candle:Candle)=>void;
+  onToolChange?:(tool:string)=>void;onDataChange?:(candles:Candle[],change:{reset:boolean})=>void;onHover?:(candle:Candle)=>void;
   onViewChange?:(range:ViewRange)=>void;onDrawingsChange?:(items:Drawing[])=>void;onScaleChange?:(state:{auto:boolean;zoom:number;offset:number})=>void;
 }
 const Canvas=LegacyCanvasChart as React.ComponentType<any>;
@@ -27,8 +27,9 @@ export const OpenNanChart=forwardRef<OpenNanChartHandle,OpenNanChartProps>(funct
   const [selectedTool,setSelectedTool]=useState(activeTool??'Cursor');
   const container=useRef<HTMLDivElement>(null),controls=useRef<CanvasControls|null>(null),[size,setSize]=useState({width:0,height:0}),run=useRef<AbortController|null>(null);
   const pendingFit=useRef(false),renderedRows=useRef(rows);renderedRows.current=rows;
+  const datasetVersion=useRef(0);
   const changeRef=useRef(onDataChange);changeRef.current=onDataChange;
-  const commit=useCallback((next:Candle[],reset=false)=>{rowsRef.current=next;setRows(next);if(reset){setVersion(n=>n+1);setOwnResult(null);}changeRef.current?.(next.map(c=>({...c})));},[]);
+  const commit=useCallback((next:Candle[],reset=false)=>{rowsRef.current=next;setRows(next);if(reset){run.current?.abort();datasetVersion.current++;setOwnResult(null);setVersion(n=>n+1);}changeRef.current?.(next.map(c=>({...c})),{reset});},[]);
   useEffect(()=>{if(lastProp.current!==data){lastProp.current=data;commit(normalizeCandles(data),true);}},[data,commit]);
   useEffect(()=>setScale(scaleMode),[scaleMode]);useEffect(()=>setStyle(chartStyle),[chartStyle]);
   useEffect(()=>{const el=container.current;if(!el)return;const observer=new ResizeObserver(()=>{const rect=el.getBoundingClientRect();setSize(prev=>prev.width===Math.floor(rect.width)&&prev.height===Math.floor(rect.height)?prev:{width:Math.floor(rect.width),height:Math.floor(rect.height)});});observer.observe(el);return ()=>observer.disconnect();},[]);
@@ -42,7 +43,7 @@ export const OpenNanChart=forwardRef<OpenNanChartHandle,OpenNanChartProps>(funct
     zoom:factor=>{if(!Number.isFinite(factor)||factor<=0)throw new Error('Zoom factor must be positive.');controls.current?.zoom(factor);},
     setScaleMode:mode=>{if(!['linear','log','percent'].includes(mode))throw new Error('Unknown scale mode.');setScale(mode);},
     setChartStyle:mode=>{if(!['candles','line','area','heikin-ashi'].includes(mode))throw new Error('Unknown chart style.');setStyle(mode);},
-    setTool:tool=>{if(!TOOLS.some(t=>t.type===tool))throw new Error('Unknown drawing tool.');setSelectedTool(tool);onToolChange?.(tool);},
+    setTool:tool=>{if(tool==='Crosshair')tool='Cursor';if(!TOOLS.some(t=>t.type===tool))throw new Error('Unknown drawing tool.');setSelectedTool(tool);onToolChange?.(tool);},
     getVisibleRange:()=>controls.current?.getVisibleRange()??{start:0,end:0},setVisibleRange:r=>controls.current?.setVisibleRange(r),
     getDrawings:()=>controls.current?.getDrawings()??[],
     setDrawings:items=>{
@@ -51,7 +52,7 @@ export const OpenNanChart=forwardRef<OpenNanChartHandle,OpenNanChartProps>(funct
       if(new Set(clean.map(d=>d.id)).size!==clean.length)throw new Error('Drawing IDs must be unique.');controls.current?.setDrawings(clean);
     },
     clearDrawings:()=>controls.current?.clearDrawings(),
-    runScript:async(source,options)=>{run.current?.abort();const controller=new AbortController();run.current=controller;const output=await runSandboxedScript(rowsRef.current,source,options,{signal:controller.signal});setOwnResult(output);return output;},
+    runScript:async(source,options)=>{run.current?.abort();const controller=new AbortController();run.current=controller;const snapshot=rowsRef.current,version=datasetVersion.current;const output=await runSandboxedScript(snapshot,source,options,{signal:controller.signal});if(controller.signal.aborted||version!==datasetVersion.current)throw new Error('Chart data was replaced during the script run.');setOwnResult(output);return output;},
     clearScript:()=>{run.current?.abort();setOwnResult(null);},exportImage:()=>controls.current?.exportImage(),
   }),[commit,onToolChange]);
   const tuples=useMemo(()=>{
@@ -63,7 +64,8 @@ export const OpenNanChart=forwardRef<OpenNanChartHandle,OpenNanChartProps>(funct
   const handleHover=useCallback((index:number)=>{if(rows[index])onHover?.({...rows[index]});},[rows,onHover]);
   const handleScale=useCallback((_count:number,_selected:string|null,state:{auto:boolean;zoom:number;offset:number})=>onScaleChange?.(state),[onScaleChange]);
   const output=result===undefined?ownResult:result;
+  const effectiveTool=(activeTool??selectedTool)==='Crosshair'?'Cursor':(activeTool??selectedTool);
   return <div ref={container} style={{height,width:'100%',minWidth:0,minHeight:120,background:palette.back,position:'relative',overflow:'hidden'}} data-opennanchart="true">
-    {rows.length===0?<div style={{height:'100%',display:'grid',placeItems:'center',color:palette.text,font:'13px system-ui'}}>Inject candles with setData() to start charting.</div>:size.width>80&&size.height>40&&<Canvas data={tuples} width={size.width} height={size.height} colors={palette} tool={activeTool??selectedTool} onToolChange={(tool:string)=>{setSelectedTool(tool);onToolChange?.(tool);}} onDrawUpdate={handleScale} controlsRef={controls} plots={output?.plots??[]} markers={output?.markers??[]} scaleMode={scale} chartStyle={style==='heikin-ashi'?'candles':style} onViewChange={onViewChange} onHover={handleHover} onDrawingsChange={onDrawingsChange} dataVersion={version}/>}
+    {rows.length===0?<div style={{height:'100%',display:'grid',placeItems:'center',color:palette.text,font:'13px system-ui'}}>Inject candles with setData() to start charting.</div>:size.width>80&&size.height>40&&<Canvas data={tuples} width={size.width} height={size.height} colors={palette} tool={effectiveTool} onToolChange={(tool:string)=>{setSelectedTool(tool);onToolChange?.(tool);}} onDrawUpdate={handleScale} controlsRef={controls} plots={output?.plots??[]} markers={output?.markers??[]} scaleMode={scale} chartStyle={style==='heikin-ashi'?'candles':style} onViewChange={onViewChange} onHover={handleHover} onDrawingsChange={onDrawingsChange} dataVersion={version}/>}
   </div>;
 });

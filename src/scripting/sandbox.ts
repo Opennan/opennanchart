@@ -1,6 +1,7 @@
 // User scripts run in a time-limited worker owned by an opaque-origin iframe.
 import { executeScript } from '../engine';
 import { normalizeCandles } from '../data';
+import {validateScriptResult} from '../../shared/result.mjs';
 import type { BacktestOptions, CandleInput, ScriptResult } from '../types';
 
 const bridge=`<!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' blob:; worker-src blob:; connect-src 'none'"><script>
@@ -33,16 +34,14 @@ export function runSandboxedScript(candles:readonly CandleInput[],source:string,
     const cleanup=()=>{clearTimeout(watchdog);runtime.signal?.removeEventListener('abort',cancel);channel.port1.postMessage({cancel:true});channel.port1.close();frame.remove();};
     const finish=(error:Error|null,result?:ScriptResult)=>{if(settled)return;settled=true;cleanup();if(error)reject(error);else resolve(result!);};
     const cancel=()=>finish(new Error('Script cancelled.'));
-    const watchdog=setTimeout(()=>finish(new Error('Script runtime did not respond in time.')),timeout+2000);
+    const watchdog=setTimeout(()=>finish(new Error("Script runtime did not respond. Check that the host CSP permits inline/eval scripts and blob workers for the isolated runtime.")),timeout+2000);
     runtime.signal?.addEventListener('abort',cancel,{once:true});
     channel.port1.onmessage=event=>{
       const message=event.data;
       if(!message?.ok){finish(new Error(typeof message?.error==='string'?message.error:'Script failed.'));return;}
-      const r=message.result;
-      if(!r||!Array.isArray(r.plots)||r.plots.length>20||!Array.isArray(r.trades)||!Array.isArray(r.equity)||r.equity.length>10000||!r.metrics){finish(new Error('Invalid script result.'));return;}
-      finish(null,r);
+      try{finish(null,validateScriptResult(message.result,rows));}catch(error){finish(error as Error);}
     };
-    const workerSource=`(()=>{const send=self.postMessage.bind(self);\nconst run=${executeScript.toString()};\nself.onmessage=function(event){
+    const workerSource=`"use strict";(()=>{const send=self.postMessage.bind(self);\nconst run=${executeScript.toString()};\nself.onmessage=function(event){
       self.onmessage=null;
       for(const key of ['fetch','XMLHttpRequest','WebSocket','EventSource','importScripts','Worker','SharedWorker','BroadcastChannel','postMessage','indexedDB','caches']){try{Object.defineProperty(self,key,{value:undefined,writable:false,configurable:false});}catch{}}
       try{const result=run(event.data.candles,event.data.source,event.data.options);send({ok:true,result});}

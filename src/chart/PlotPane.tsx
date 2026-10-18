@@ -8,7 +8,7 @@ export function PlotPane({plots,range,height=130,label='Indicator'}:{plots:Scrip
     const c=canvas.current;if(!c||width<=80)return;const dpr=window.devicePixelRatio||1;c.width=width*dpr;c.height=height*dpr;const ctx=c.getContext('2d');if(!ctx)return;ctx.scale(dpr,dpr);
     ctx.fillStyle='#0a0c0f';ctx.fillRect(0,0,width,height);const chartWidth=width-70,top=28,bottom=height-15;
     const values=plots.flatMap(p=>p.values.filter(v=>v.index>=range.start&&v.index<=range.end).map(v=>v.value));
-    if(!values.length)return;let lo=Math.min(...values),hi=Math.max(...values);const padding=Math.max((hi-lo)*.12,Math.abs(hi)*.01,1e-6);lo-=padding;hi+=padding;
+    if(!values.length)return;let lo=Infinity,hi=-Infinity;for(const value of values){lo=Math.min(lo,value);hi=Math.max(hi,value);}const padding=Math.max((hi-lo)*.12,Math.abs(hi)*.01,1e-6);lo-=padding;hi+=padding;
     const x=(i:number)=>(i-range.start+.5)/(range.end-range.start)*chartWidth,y=(v:number)=>top+(hi-v)/(hi-lo)*(bottom-top);
     ctx.font='10px ui-monospace,monospace';for(let n=0;n<3;n++){const v=lo+(hi-lo)*n/2,py=y(v);ctx.strokeStyle='#171c23';ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(chartWidth,py);ctx.stroke();ctx.fillStyle='#a0a6b1';ctx.fillText(v.toFixed(2),chartWidth+8,py+3);}
     ctx.save();ctx.beginPath();ctx.rect(0,top,chartWidth,bottom-top);ctx.clip();

@@ -14,6 +14,7 @@ test('fees and adverse slippage apply on both sides of a long trade',()=>{
   const result=executeScript(bars,b=>{if(b.index===0)b.strategy.entry('long');if(b.index===1)b.strategy.close();},{initialCapital:10000,feeBps:100,slippageBps:100});
   const entry=121.2,exit=128.7,quantity=10000/1.01/entry,entryFee=quantity*entry*.01,exitFee=quantity*exit*.01;
   const trade=result.trades[0];almost(trade.entryPrice,entry);almost(trade.exitPrice,exit);almost(trade.quantity,quantity);almost(trade.pnl,quantity*(exit-entry)-entryFee-exitFee);almost(result.metrics.fees,entryFee+exitFee);almost(result.metrics.finalEquity,10000+trade.pnl);
+  assert.deepEqual(result.configuration,{initialCapital:10000,feeBps:100,slippageBps:100,allocationPercent:100,fillModel:'next-open',equityModel:'bar-close'});
 });
 test('short trades use the reverse price direction and adverse fills',()=>{
   const result=executeScript(bars,b=>{if(b.index===0)b.strategy.entry('short');if(b.index===1)b.strategy.close();},zero);
@@ -29,6 +30,10 @@ test('last bar orders remain pending, open positions are marked to market',()=>{
 });
 test('allocation and same-side entries do not pyramid positions',()=>{
   const result=executeScript(bars,b=>b.strategy.entry('long'),{...zero,allocationPercent:50});assert.equal(result.markers.length,1);almost(result.metrics.finalEquity,10000+5000/120*35);
+});
+test('no-op orders are not reported as pending',()=>{
+  assert.equal(executeScript(bars,b=>b.strategy.close(),zero).metrics.pendingOrder,false);
+  const result=executeScript(bars,b=>b.strategy.entry('long'),zero);assert.equal(result.metrics.pendingOrder,false);
 });
 const line:Candle[]=[1,2,3,4,5].map((close,i)=>({time:i*3600000,open:close,high:close+.1,low:close-.1,close,volume:10}));
 test('SMA warmup, SMA-seeded EMA and Bollinger population deviation match known values',()=>{

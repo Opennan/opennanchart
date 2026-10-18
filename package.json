@@ -19,10 +19,12 @@
   "files": [
     "dist",
     "server",
+    "shared",
     "docs",
     "README.md",
     "LICENSE",
-    "NOTICE"
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "bin": {
     "opennanchart": "server/serve.mjs",
@@ -37,7 +39,7 @@
     "test": "tsx --test tests/*.test.ts",
     "check": "tsc --noEmit",
     "test:browser": "node tests/browser.mjs",
-    "prepack": "npm run build"
+    "prepare": "npm run build"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

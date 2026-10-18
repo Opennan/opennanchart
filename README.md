@@ -44,7 +44,13 @@ the surrounding controls and code editor support keyboard input.
 ## Embed with JavaScript
 
 The package is prepared for npm distribution. Until a registry release exists,
-build and install its local archive:
+install directly from the public source (npm builds it through `prepare`):
+
+```sh
+npm install github:thaithamtawan/opennanchart react react-dom
+```
+
+Or build and install its local archive:
 
 ```sh
 npm pack
@@ -175,6 +181,16 @@ the worker has a restrictive network CSP and no parent DOM or storage access.
 Source is never evaluated by the Node MCP bridge. Browser isolation is not a
 reason to run unknown scripts inside unrelated sensitive web applications.
 
+The embedding page's CSP is inherited by the runtime iframe. Script execution
+therefore requires the host to permit inline bootstrap code, eval, and blob
+workers (`script-src 'unsafe-inline' 'unsafe-eval' blob:` and `worker-src blob:`).
+Do not weaken a sensitive application's existing policy to accommodate this;
+use a dedicated chart origin when those permissions conflict with its policy.
+Chart rendering and data injection do not require eval.
+
+The worker bootstrap and engine run in strict mode so sloppy callback stack
+inspection cannot expose the complete candle array.
+
 For **trusted Node code**, import `executeScript` from `opennanchart/engine`.
 It accepts a bar callback or trusted source. Direct engine execution is not a
 security sandbox; never pass it untrusted source in your server.
@@ -191,6 +207,10 @@ security sandbox; never pass it untrusted source in your server.
 - Trade P&L includes both commissions. Final equity also includes unrealized P&L.
 - Drawdown uses bar-close equity relative to its running peak, starting with initial capital.
 - Heikin Ashi is a display transform. Backtests use the original candles.
+
+Every result records its capital, fee, slippage, allocation and execution model
+in `result.configuration`, including results requested through MCP. Changing
+workspace settings affects the next run; it does not relabel an existing run.
 
 ## MCP
 
@@ -231,6 +251,17 @@ it and waits for results. The bridge is local, single-workspace and in-memory;
 it has no account system or remote multi-tenant hosting. It binds to loopback
 and rejects foreign browser origins and non-JSON mutations.
 
+Agent scripts do not replace the editor draft. Use **Load agent script** to
+explicitly bring one into the editor. On bridge reconnection, unsynchronized
+local candle edits are pushed before more results are shared; a restarted
+bridge is identified by its instance ID. The browser can run scripts while the
+bridge is offline. Local backtest results remain visible if sharing fails.
+When a restarted bridge already contains agent-loaded data and the browser has
+no unsynchronized candle edits, that dataset is adopted. View changes and local
+runs made while disconnected are shared after reconnection. Incoming events
+and outgoing mutations are processed in order. Rejected 4xx requests show the
+server's message; network retries use backoff.
+
 The same operations are available over REST: `GET /api/state`,
 `PUT /api/candles`, `POST /api/candle`, `PUT /api/view`, `POST /api/run`,
 `GET /api/results`, `GET /api/indicators`, `GET /api/health`.
@@ -250,4 +281,5 @@ elsewhere (`npx playwright install chromium`). Set `PLAYWRIGHT_CHANNEL` to
 override the browser channel. Tests use isolated local bridge data and do not
 contact customers or place exchange orders.
 
-MIT licensed. Original attribution is retained in LICENSE and NOTICE.
+MIT licensed. Original attribution is retained in LICENSE and NOTICE. Bundled
+dependency licenses are reproduced in THIRD_PARTY_NOTICES.md.

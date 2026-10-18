@@ -9,6 +9,7 @@ export interface ScriptPlot { name:string; color:string; pane:'price'|'indicator
 export interface Trade { side:'long'|'short'; entryTime:number; exitTime:number; entryIndex:number; exitIndex:number; entryPrice:number; exitPrice:number; quantity:number; grossPnl:number; fees:number; pnl:number; returnPercent:number }
 export interface EquityPoint { time:number; equity:number; drawdownPercent:number }
 export interface ScriptResult {
+  configuration:{initialCapital:number;feeBps:number;slippageBps:number;allocationPercent:number;fillModel:'next-open';equityModel:'bar-close'};
   plots:ScriptPlot[]; trades:Trade[]; equity:EquityPoint[]; logs:string[];
   inputs:Record<string,number>; markers:{index:number;time:number;price:number;side:'buy'|'sell';text:string}[];
   metrics:{initialCapital:number;finalEquity:number;netProfit:number;returnPercent:number;maxDrawdownPercent:number;totalTrades:number;winRate:number;profitFactor:number|null;fees:number;openPosition:'long'|'short'|null;pendingOrder:boolean};
