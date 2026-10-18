@@ -1,0 +1,11 @@
+Opennanchart continues the owner's TradingReact canvas chart implementation,
+originally developed as a React adaptation of trading-vue-js.
+
+Original trading-vue-js: Copyright (c) 2019 c451, Code's All Right.
+https://github.com/tvjsx/trading-vue-js
+Original license: MIT, reproduced in LICENSE.
+
+The circuit arc logo and visual identity come from the owner's Opennan product.
+Opennanchart is an independent product and is not affiliated with TradingView.
+The renderer is custom React/canvas; this package does not contain TradingView's
+proprietary Advanced Charts or Pine Script runtime.

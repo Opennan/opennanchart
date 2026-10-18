@@ -1,0 +1,78 @@
+{
+  "name": "opennanchart",
+  "version": "0.1.0",
+  "description": "An embeddable React candlestick chart with JavaScript indicators, backtesting and MCP.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/opennanchart.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/opennanchart.js"
+    },
+    "./engine": {
+      "types": "./dist/engine/index.d.ts",
+      "import": "./dist/engine.js"
+    }
+  },
+  "files": [
+    "dist",
+    "server",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "bin": {
+    "opennanchart": "server/serve.mjs",
+    "opennanchart-mcp": "server/mcp.mjs"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 3030",
+    "dev:bridge": "node server/serve.mjs --api-only",
+    "build": "tsc --noEmit && vite build && vite build --config vite.lib.config.ts && vite build --config vite.standalone.config.ts && tsc -p tsconfig.types.json",
+    "start": "node server/serve.mjs",
+    "mcp": "node server/mcp.mjs",
+    "test": "tsx --test tests/*.test.ts",
+    "check": "tsc --noEmit",
+    "test:browser": "node tests/browser.mjs",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.14",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "codemirror": "^6.0.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "playwright": "^1.57.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vite": "^6.4.4"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thaithamtawan/opennanchart.git"
+  },
+  "homepage": "https://github.com/thaithamtawan/opennanchart#readme",
+  "bugs": {
+    "url": "https://github.com/thaithamtawan/opennanchart/issues"
+  }
+}
