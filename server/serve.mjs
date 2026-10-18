@@ -19,7 +19,7 @@ export function validateData(inputs){
   for(let i=1;i<rows.length;i++)if(rows[i].time<=rows[i-1].time)throw new Error('Candle timestamps must be unique and increasing.');return rows;
 }
 export function createBridgeServer({port=3031,apiOnly=false}={}){
-  let state={instanceId:randomUUID(),candles:[],symbol:'BTCUSDT',interval:'1h',source:'No data',scaleMode:'linear',chartStyle:'candles',revision:0,viewRevision:0,resultRevision:0,result:null,script:'',scriptOrigin:null,lastRun:null,studies:[]};
+  let state={instanceId:randomUUID(),candles:[],symbol:'BTCUSDT',interval:'1h',source:'No data',scaleMode:'linear',chartStyle:'candles',revision:0,viewRevision:0,resultRevision:0,result:null,script:'',scriptOrigin:null,lastRun:null,studies:[],dataEpoch:0};
   const clients=new Map(),jobs=new Map(),commands=new Map(),removedStudies=new Set();
   const publish=(message,origin)=>{for(const [id,res]of clients)if(id!==origin)res.write(`data: ${JSON.stringify({...message,instanceId:state.instanceId})}\n\n`);};
   const rememberRemoval=id=>{removedStudies.add(id);if(removedStudies.size>10000)removedStudies.delete(removedStudies.values().next().value);};
@@ -56,7 +56,7 @@ export function createBridgeServer({port=3031,apiOnly=false}={}){
       if(req.method==='GET'&&url.pathname==='/api/results')return state.result?json(200,url.searchParams.get('includeSeries')==='false'?summarize(state.result):state.result):json(404,{error:'Run a script on the current dataset first.'});
       if(req.method==='GET'&&url.pathname==='/api/studies')return json(200,state.studies.map(s=>({id:s.id,name:s.result.indicator?.name??s.result.plots[0]?.name??'JavaScript indicator',visible:s.visible,inputs:s.result.inputs})));
       if(req.method==='PUT'&&url.pathname==='/api/studies'){
-        if(body.revision!==state.revision)return json(409,{error:'Data changed; indicator collection is stale.'});
+        if(body.dataEpoch!==state.dataEpoch)return json(409,{error:'Dataset changed; indicator collection is stale.'});
         if(!Array.isArray(body.studies)||body.studies.length>20||!Array.isArray(body.removals??[])||(body.removals??[]).length>100)throw new Error('Provide at most 20 indicator updates and 100 removals.');
         const updates=body.studies.map(s=>{if(!s||typeof s.id!=='string'||s.id.length>100||typeof s.source!=='string'||s.source.length>64000||typeof s.visible!=='boolean')throw new Error('Invalid indicator instance.');return {id:s.id,source:s.source,visible:s.visible,result:validateScriptSnapshot(s.result,state.candles)};});
         if(new Set(updates.map(s=>s.id)).size!==updates.length||(body.removals??[]).some(id=>typeof id!=='string'||id.length>100))throw new Error('Invalid or duplicate indicator IDs.');
@@ -69,13 +69,13 @@ export function createBridgeServer({port=3031,apiOnly=false}={}){
         for(const id of removals)rememberRemoval(id);state.studies=[...next.values()];
         const active=next.get(body.activeId)??next.get(state.currentStudyId)??state.studies.at(-1);state.currentStudyId=active?.id;state.result=active?.result??null;state.script=active?.source??'';state.scriptOrigin='browser';state.lastRun=active?{source:active.source,options:{...active.result.configuration,inputs:active.result.inputs}}:null;
         const changed=updates.filter(s=>next.has(s.id)&&!removedStudies.has(s.id)).map(s=>next.get(s.id)),deleted=[...new Set([...removals,...updates.filter(s=>removedStudies.has(s.id)).map(s=>s.id)])];
-        state.resultRevision++;const event={type:'studies',partial:true,studies:changed,removedIds:deleted,revision:state.revision,resultRevision:state.resultRevision};publish(event,client);return json(200,{accepted:true,...event});
+        state.resultRevision++;const event={type:'studies',partial:true,studies:changed,removedIds:deleted,revision:state.revision,dataEpoch:state.dataEpoch,resultRevision:state.resultRevision};publish(event,client);return json(200,{accepted:true,...event});
       }
       if(req.method==='POST'&&url.pathname==='/api/studies'){
-        const study=state.studies.find(s=>s.id===body.id);if(!study)throw new Error('Unknown indicator.');
+        const study=state.studies.find(s=>s.id===body.id);if(!study){if(body.remove===true&&typeof body.id==='string'&&body.id.length<=100){rememberRemoval(body.id);state.resultRevision++;publish({type:'studies',partial:true,studies:[],removedIds:[body.id],revision:state.revision,dataEpoch:state.dataEpoch,resultRevision:state.resultRevision},client);return json(200,{accepted:true,resultRevision:state.resultRevision});}throw new Error('Unknown indicator.');}
         if(body.remove===true){rememberRemoval(study.id);state.studies=state.studies.filter(s=>s!==study);if(state.currentStudyId===study.id){const latest=state.studies.at(-1);state.currentStudyId=latest?.id;state.result=latest?.result??null;state.script=latest?.source??'';state.lastRun=latest?{source:latest.source,options:{...latest.result.configuration,inputs:latest.result.inputs}}:null;}}
         else if(typeof body.visible==='boolean')study.visible=body.visible;else throw new Error('Provide visible or remove.');
-        state.resultRevision++;publish({type:'studies',partial:true,studies:body.remove===true?[]:[study],removedIds:body.remove===true?[study.id]:[],revision:state.revision,resultRevision:state.resultRevision},client);return json(200,{accepted:true,resultRevision:state.resultRevision});
+        state.resultRevision++;publish({type:'studies',partial:true,studies:body.remove===true?[]:[study],removedIds:body.remove===true?[study.id]:[],revision:state.revision,dataEpoch:state.dataEpoch,resultRevision:state.resultRevision},client);return json(200,{accepted:true,resultRevision:state.resultRevision});
       }
       if(req.method==='GET'&&url.pathname==='/api/script')return json(200,{source:state.script,origin:state.scriptOrigin});
       if(req.method==='GET'&&url.pathname==='/api/indicators')return json(200,{indicators:['sma','ema','rsi','atr','bbands','highest','lowest','stdev'],execution:'Signals at bar close; fills at the next bar open. Fees and slippage in basis points.'});
@@ -85,13 +85,13 @@ export function createBridgeServer({port=3031,apiOnly=false}={}){
         const keepalive=setInterval(()=>res.write(': ping\n\n'),15000);req.on('close',()=>{clearInterval(keepalive);if(clients.get(id)===res)clients.delete(id);});return;
       }
       if(req.method==='PUT'&&url.pathname==='/api/candles'){
-        const rows=validateData(body.candles),preserve=body.preserveStudies===true&&state.candles.length<=rows.length&&state.candles.every((c,i)=>c.time===rows[i]?.time&&(i===state.candles.length-1||['open','high','low','close','volume'].every(k=>c[k]===rows[i][k])));invalidate();if(!preserve){state.studies=[];state.lastRun=null;state.currentStudyId=undefined;removedStudies.clear();state.resultRevision++;}state={...state,candles:rows,symbol:typeof body.symbol==='string'?body.symbol.slice(0,40):state.symbol,interval:typeof body.interval==='string'?body.interval.slice(0,10):state.interval,source:typeof body.source==='string'?body.source.slice(0,80):'Injected via API'};
-        publish({type:'data',state},client);return json(200,{revision:state.revision,resultRevision:state.resultRevision,studiesPreserved:preserve,candles:state.candles.length});
+        const rows=validateData(body.candles),preserve=body.preserveStudies===true&&state.candles.length<=rows.length&&state.candles.every((c,i)=>c.time===rows[i]?.time&&(i===state.candles.length-1||['open','high','low','close','volume'].every(k=>c[k]===rows[i][k])));invalidate();if(!preserve){state.studies=[];state.lastRun=null;state.currentStudyId=undefined;removedStudies.clear();state.dataEpoch++;state.resultRevision++;}state={...state,candles:rows,symbol:typeof body.symbol==='string'?body.symbol.slice(0,40):state.symbol,interval:typeof body.interval==='string'?body.interval.slice(0,10):state.interval,source:typeof body.source==='string'?body.source.slice(0,80):'Injected via API'};
+        publish({type:'data',state},client);return json(200,{revision:state.revision,dataEpoch:state.dataEpoch,resultRevision:state.resultRevision,studiesPreserved:preserve,candles:state.candles.length});
       }
       if(req.method==='POST'&&url.pathname==='/api/candle'){
         const candle=validateCandle(body.candle),last=state.candles.at(-1);if(last&&candle.time<last.time)throw new Error('Update the latest candle or append a newer one.');
         if(last?.time!==candle.time&&state.candles.length>=MAX_CANDLES)throw new Error('Dataset reached 10,000 candles.');
-        invalidate();state.candles=last?.time===candle.time?[...state.candles.slice(0,-1),candle]:[...state.candles,candle];publish({type:'candle',candle,revision:state.revision},client);return json(200,{revision:state.revision,candles:state.candles.length});
+        invalidate();state.candles=last?.time===candle.time?[...state.candles.slice(0,-1),candle]:[...state.candles,candle];publish({type:'candle',candle,dataEpoch:state.dataEpoch,revision:state.revision},client);return json(200,{revision:state.revision,candles:state.candles.length});
       }
       if(req.method==='PUT'&&url.pathname==='/api/view'){
         if(body.scaleMode!==undefined&&!['linear','log','percent'].includes(body.scaleMode))throw new Error('Invalid scale mode.');
@@ -132,12 +132,12 @@ export function createBridgeServer({port=3031,apiOnly=false}={}){
         if(job.revision!==state.revision){job.reject(new Error('Chart data changed. Run again.'));return json(409,{error:'Stale run.'});}
         let validated;try{validated=validateScriptResult(body.result,state.candles);}catch(error){job.reject(error);throw error;}
         if(job.studyId&&!state.studies.some(s=>s.id===job.studyId)){job.reject(new Error('Indicator was removed during the run.'));return json(409,{error:'Indicator was removed.'});}
-        let studyId;try{studyId=storeStudy(validated,job.source,job.studyId??body.studyId);}catch(error){job.reject(error);throw error;}state.result=validated;state.script=job.source;state.scriptOrigin='agent';state.lastRun={source:state.script,options:{...validated.configuration,inputs:{...validated.inputs}}};state.resultRevision++;job.resolve(validated);publish({type:'result',studyId,result:validated,source:state.script,origin:state.scriptOrigin,revision:state.revision,resultRevision:state.resultRevision},client);return json(200,{accepted:true,studyId,resultRevision:state.resultRevision});
+        let studyId;try{studyId=storeStudy(validated,job.source,job.studyId??body.studyId);}catch(error){job.reject(error);throw error;}state.result=validated;state.script=job.source;state.scriptOrigin='agent';state.lastRun={source:state.script,options:{...validated.configuration,inputs:{...validated.inputs}}};state.resultRevision++;job.resolve(validated);publish({type:'result',studyId,result:validated,source:state.script,origin:state.scriptOrigin,revision:state.revision,dataEpoch:state.dataEpoch,resultRevision:state.resultRevision},client);return json(200,{accepted:true,studyId,dataEpoch:state.dataEpoch,resultRevision:state.resultRevision});
       }
       if(req.method==='POST'&&url.pathname==='/api/result'){
         if(body.revision!==state.revision)return json(409,{error:'Data changed; this result is stale.'});
         const validated=validateScriptResult(body.result,state.candles),studyId=storeStudy(validated,typeof body.source==='string'?body.source.slice(0,64000):'',body.studyId);
-        state.result=validated;state.script=typeof body.source==='string'?body.source.slice(0,64000):'';state.scriptOrigin='browser';state.lastRun={source:state.script,options:{...state.result.configuration,inputs:{...state.result.inputs}}};state.resultRevision++;publish({type:'result',studyId,result:state.result,source:state.script,origin:state.scriptOrigin,revision:state.revision,resultRevision:state.resultRevision},client);return json(200,{accepted:true,resultRevision:state.resultRevision});
+        state.result=validated;state.script=typeof body.source==='string'?body.source.slice(0,64000):'';state.scriptOrigin='browser';state.lastRun={source:state.script,options:{...state.result.configuration,inputs:{...state.result.inputs}}};state.resultRevision++;publish({type:'result',studyId,result:state.result,source:state.script,origin:state.scriptOrigin,revision:state.revision,dataEpoch:state.dataEpoch,resultRevision:state.resultRevision},client);return json(200,{accepted:true,resultRevision:state.resultRevision});
       }
       if(url.pathname.startsWith('/api/'))return json(404,{error:'Unknown API operation.'});
       if(apiOnly)return json(404,{error:'API bridge only. Open the Vite demo on port 3030.'});

@@ -15,7 +15,7 @@ import {DrawingRail} from './DrawingRail';
 import {ScriptInputs} from './ScriptInputs';
 import {DEFAULT_LAYOUT,LAYOUT_LABELS,readLayout,normalizeLayout,type LayoutPreferences} from './layout';
 import {parseCandleText} from './import';
-import {validateScriptResult,validateScriptSnapshot} from '../shared/result.mjs';
+import {validateScriptSnapshot} from '../shared/result.mjs';
 
 const clientId=crypto.randomUUID();
 async function api(path:string,method='GET',body?:unknown){let response:Response;try{response=await fetch(`/api${path}`,{method,headers:{'Content-Type':'application/json','X-Opennanchart-Client':clientId},body:body===undefined?undefined:JSON.stringify(body)});}catch(error){throw Object.assign(new Error((error as Error).message),{status:0});}const value=await response.json().catch(()=>({error:'Invalid bridge response.'}));if(!response.ok)throw Object.assign(new Error(value.error??'Chart bridge request failed.'),{status:response.status});return value;}
@@ -50,6 +50,7 @@ export default function App(){
   const [agentSource,setAgentSource]=useState<string|null>(null);
   const [connectionEpoch,setConnectionEpoch]=useState(0);
   const runController=useRef<AbortController|null>(null),revision=useRef(0),bridgeReady=useRef(false),metadata=useRef({symbol,interval,source:dataSource}),handlers=useRef<any>({});metadata.current={symbol,interval,source:dataSource};
+  const serverDataEpoch=useRef(0),studyVersions=useRef(new Map<string,number>()),studySnapshotFloor=useRef(-1),knownStudies=useRef(new Set<string>());
   const datasetEpoch=useRef(0),resetPending=useRef(false),applyingRemote=useRef(false);
   const instance=useRef<string|null>(null),dirtyLocal=useRef(false),generation=useRef(0),syncQueue=useRef<Promise<void>>(Promise.resolve());
   const fullPushPending=useRef(false),syncedGeneration=useRef(0);
@@ -61,7 +62,7 @@ export default function App(){
   const last=candles.at(-1),shown=hovered??last;
   const onRows=useCallback((rows:Candle[],change:{reset:boolean})=>{
     rowsRef.current=rows;setCandles(rows);setHovered(null);dirtyResult.current=false;localRun.current=null;
-    if(change.reset){datasetEpoch.current++;resetPending.current=!applyingRemote.current;pendingStudies.current.clear();pendingVisibility.current.clear();dirtyStudies.current=false;runController.current?.abort();saveStudies([]);activeStudy.current=null;editingStudy.current=null;activeSource.current=null;setResult(null);}else{dirtyStudies.current=pendingStudies.current.size>0;if(resultRef.current)setStatus('Results are a snapshot · Run to refresh.');}
+    if(change.reset){datasetEpoch.current++;studyVersions.current.clear();studySnapshotFloor.current=-1;knownStudies.current.clear();resetPending.current=!applyingRemote.current;pendingStudies.current.clear();pendingVisibility.current.clear();dirtyStudies.current=false;runController.current?.abort();saveStudies([]);activeStudy.current=null;editingStudy.current=null;activeSource.current=null;setResult(null);}else{dirtyStudies.current=pendingStudies.current.size>0;if(resultRef.current)setStatus('Results are a snapshot · Run to refresh.');}
   },[]);
   const onDrawings=useCallback((items:Drawing[])=>setDrawingCount(items.length),[]);
   const onScale=useCallback((state:{auto:boolean})=>setAutoScale(state.auto),[]);
@@ -82,10 +83,11 @@ export default function App(){
   };
   const pushData=async(rows:Candle[],meta:typeof metadata.current,ticket:number,epoch=datasetEpoch.current)=>{
     if(!bridgeReady.current||epoch!==datasetEpoch.current)return;const target=instance.current,response=await api('/candles','PUT',{candles:rows,...meta,preserveStudies:!resetPending.current&&studiesRef.current.length>0});
-    if(target!==instance.current||epoch!==datasetEpoch.current)return;revision.current=Math.max(revision.current,response.revision);resultRevision.current=Math.max(resultRevision.current,response.resultRevision??0);resetPending.current=false;
+    if(target!==instance.current||epoch!==datasetEpoch.current)return;revision.current=Math.max(revision.current,response.revision);resultRevision.current=Math.max(resultRevision.current,response.resultRevision??0);serverDataEpoch.current=response.dataEpoch??serverDataEpoch.current;resetPending.current=false;
     if(response.studiesPreserved===false){for(const study of studiesRef.current)if(!pendingStudies.current.has(study.id))pendingStudies.current.set(study.id,study);dirtyStudies.current=pendingStudies.current.size>0;}
     syncedGeneration.current=Math.max(syncedGeneration.current,ticket);
     if(ticket===generation.current){dirtyLocal.current=false;fullPushPending.current=false;setError(old=>old.startsWith('Agent bridge:')?'':old);}
+    return response.studiesPreserved;
   };
   const syncData=(rows:Candle[],meta=metadata.current)=>{
     dirtyLocal.current=true;fullPushPending.current=true;const ticket=++generation.current,epoch=datasetEpoch.current;if(!bridgeReady.current)return Promise.resolve();return enqueue(async()=>{await pushData(rows,meta,ticket,epoch);if(pendingStudies.current.size)await shareLocalRun();});
@@ -100,13 +102,21 @@ export default function App(){
   };
   const syncView=()=>{dirtyView.current=true;viewGeneration.current++;if(!bridgeReady.current)return Promise.resolve();return enqueue(pushView);};
   function mergeStudies(remote:IndicatorInstance[],removedIds:string[]=[],partial=false){
-    for(const id of removedIds){pendingStudies.current.delete(id);pendingVisibility.current.delete(id);}
+    if(!partial){const ids=new Set(remote.map(s=>s.id));for(const id of knownStudies.current)if(!ids.has(id)){pendingStudies.current.delete(id);pendingVisibility.current.delete(id);}knownStudies.current=ids;}
+    for(const id of removedIds){pendingStudies.current.delete(id);pendingVisibility.current.delete(id);knownStudies.current.delete(id);}for(const s of remote)knownStudies.current.add(s.id);
     const merged=new Map((partial?studiesRef.current:[]).map(s=>[s.id,s]));for(const id of removedIds)merged.delete(id);for(const s of remote)merged.set(s.id,{...s,result:validateScriptSnapshot(s.result,rowsRef.current)});
-    for(const [id,value]of pendingStudies.current){if(value)merged.set(id,value);else merged.delete(id);}
+    for(const [id,value]of pendingStudies.current){if(value){const current=merged.get(id);merged.set(id,current&&!pendingVisibility.current.has(id)?{...value,visible:current.visible}:value);}else merged.delete(id);}
     const next=[...merged.values()];saveStudies(next);
     if(editingStudy.current&&!merged.has(editingStudy.current))editingStudy.current=null;
     const active=merged.get(activeStudy.current??'')??next.at(-1);if(active)activateStudy(active);else{activeStudy.current=null;activeSource.current=null;setResult(null);}
     dirtyStudies.current=pendingStudies.current.size>0;
+  }
+  function applyStudyDelta(event:any){
+    if(resetPending.current||event.dataEpoch!==serverDataEpoch.current)return;
+    const fresh=(id:string)=>event.resultRevision>Math.max(studySnapshotFloor.current,studyVersions.current.get(id)??-1);
+    const updates=(event.studies??[]).filter((s:IndicatorInstance)=>fresh(s.id)),removed=(event.removedIds??[]).filter((id:string)=>fresh(id));
+    for(const id of [...updates.map((s:IndicatorInstance)=>s.id),...removed])studyVersions.current.set(id,event.resultRevision);
+    mergeStudies(updates,removed,true);resultRevision.current=Math.max(resultRevision.current,event.resultRevision);
   }
   const shareLocalRun=async()=>{
     if(!bridgeReady.current||!pendingStudies.current.size)return;
@@ -117,11 +127,11 @@ export default function App(){
     for(const [id,value]of [...pendingStudies.current]){
       if(pendingStudies.current.get(id)!==value)continue;
       const epoch=datasetEpoch.current,target=instance.current;
-      const response=await api('/studies','PUT',{studies:value?[value]:[],removals:value?[]:[id],visibilityChanges:pendingVisibility.current.has(id)?[id]:[],activeId:activeStudy.current,revision:revision.current});
+      const response=await api('/studies','PUT',{studies:value?[value]:[],removals:value?[]:[id],visibilityChanges:pendingVisibility.current.has(id)?[id]:[],activeId:activeStudy.current,dataEpoch:serverDataEpoch.current,revision:revision.current});
       if(epoch!==datasetEpoch.current||target!==instance.current||resetPending.current)return;
       resultRevision.current=Math.max(resultRevision.current,response.resultRevision);
       if(pendingStudies.current.get(id)===value){pendingStudies.current.delete(id);pendingVisibility.current.delete(id);}
-      mergeStudies(response.studies,response.removedIds,true);
+      applyStudyDelta(response);
     }
     dirtyResult.current=pendingStudies.current.size>0;
   };
@@ -139,7 +149,8 @@ export default function App(){
     // Flush a just-finished local run before mutating its bridge instance.
     if(bridgeReady.current&&(dirtyResult.current||pendingStudies.current.size))await enqueue(shareLocalRun);
     // Persist first so a failed bridge request cannot resurrect a supposedly removed study.
-    if(bridgeReady.current){try{const response=await api('/studies','POST',{id,remove,visible});resultRevision.current=Math.max(resultRevision.current,response.resultRevision);}catch(error){if((error as Error).message==='Unknown indicator.')remove=true;else throw error;}}
+    if(bridgeReady.current){try{const response=await api('/studies','POST',{id,remove,visible});resultRevision.current=Math.max(resultRevision.current,response.resultRevision);studyVersions.current.set(id,response.resultRevision);}catch(error){if((error as Error).message==='Unknown indicator.')remove=true;else throw error;}}
+    if(remove&&bridgeReady.current){pendingStudies.current.delete(id);pendingVisibility.current.delete(id);}
     if(!bridgeReady.current){const value=remove?null:studiesRef.current.find(s=>s.id===id);pendingStudies.current.set(id,value?{...value,visible:!!visible}:null);pendingVisibility.current.add(id);dirtyStudies.current=true;}
     const next=remove?studiesRef.current.filter(s=>s.id!==id):studiesRef.current.map(s=>s.id===id?{...s,visible:!!visible}:s);saveStudies(next);
     if(remove&&editingStudy.current===id)editingStudy.current=null;
@@ -158,7 +169,7 @@ export default function App(){
       if(!job&&!sameData(snapshot,rowsRef.current))throw new Error('Data changed during the run. Run again on the updated candles.');
       if(targetId&&!studiesRef.current.some(s=>s.id===targetId))throw new Error('Indicator was removed during the run.');
       let studyId=targetId??(!add?studiesRef.current.find(s=>s.source===code)?.id:undefined)??crypto.randomUUID();
-      if(job){const response=await api(`/jobs/${job.id}`,'POST',{result:output,studyId});studyId=response.studyId;resultRevision.current=Math.max(resultRevision.current,response.resultRevision);if(code!==source)setAgentSource(code);}
+      if(job){const response=await api(`/jobs/${job.id}`,'POST',{result:output,studyId});studyId=response.studyId;studyVersions.current.set(studyId,response.resultRevision);knownStudies.current.add(studyId);resultRevision.current=Math.max(resultRevision.current,response.resultRevision);if(code!==source)setAgentSource(code);}
       else{localRun.current={result:output,source:code,rows:snapshot,studyId};dirtyResult.current=true;if(fromEditor)editingStudy.current=studyId;}
       installStudy(output,code,studyId);if(!job){pendingStudies.current.set(studyId,studiesRef.current.find(s=>s.id===studyId)!);dirtyStudies.current=true;}setTradePage(0);setStatus(`${output.plots.length} plots · ${output.trades.length} closed trades`);
       if(!job&&bridgeReady.current)await enqueue(shareLocalRun);
@@ -171,20 +182,23 @@ export default function App(){
     if(event.type==='hello'||event.type==='data'){
       const state=event.state,restarted=instance.current!==null&&instance.current!==state.instanceId,first=instance.current===null,hello=event.type==='hello';
       instance.current=state.instanceId;
-      if(first||restarted){revision.current=state.revision;viewRevision.current=state.viewRevision??0;resultRevision.current=state.resultRevision??0;}
+      if(first||restarted){studyVersions.current.clear();studySnapshotFloor.current=-1;knownStudies.current.clear();revision.current=state.revision;viewRevision.current=state.viewRevision??0;resultRevision.current=state.resultRevision??0;}
       if(hello)bridgeReady.current=true;
-      if(!hello&&state.revision<revision.current)return;
+      if(!hello&&(resetPending.current||state.dataEpoch<serverDataEpoch.current||state.revision<revision.current))return;
+      serverDataEpoch.current=state.dataEpoch??0;
+      if(hello&&state.studies){const ids=new Set(state.studies.map((s:IndicatorInstance)=>s.id));const removed=[...knownStudies.current].filter(id=>!ids.has(id));if(removed.length)mergeStudies([],removed,true);}
       let pushedData=false;
       if(hello&&(dirtyLocal.current||((first||restarted)&&state.revision===0&&state.candles.length===0))){
-        bridgeReady.current=true;if(first||restarted){for(const study of studiesRef.current)if(!pendingStudies.current.has(study.id))pendingStudies.current.set(study.id,study);dirtyStudies.current=pendingStudies.current.size>0;}await pushData(rowsRef.current,metadata.current,generation.current);pushedData=true;
+        bridgeReady.current=true;if(first||restarted){for(const study of studiesRef.current)if(!pendingStudies.current.has(study.id))pendingStudies.current.set(study.id,study);dirtyStudies.current=pendingStudies.current.size>0;}const preserved=await pushData(rowsRef.current,metadata.current,generation.current);pushedData=true;if(preserved){mergeStudies(state.studies??[]);studySnapshotFloor.current=state.resultRevision??-1;}
       }else if(first||restarted||state.revision>revision.current){applyData(normalizeCandles(state.candles),{symbol:state.symbol,interval:state.interval,source:state.source},!hello);revision.current=state.revision;}
       if(hello&&(dirtyView.current||pushedData&&(first||restarted)))await pushView();
       else if(!dirtyView.current&&(state.viewRevision??0)>=viewRevision.current){viewRevision.current=state.viewRevision??0;setScale(state.scaleMode);setChartStyle(state.chartStyle);viewRef.current={scaleMode:state.scaleMode,chartStyle:state.chartStyle};}
+      if(!pushedData&&state.studies){mergeStudies(state.studies);studySnapshotFloor.current=state.resultRevision??-1;resultRevision.current=Math.max(resultRevision.current,state.resultRevision??0);}
       if(hello&&(dirtyResult.current||dirtyStudies.current))await shareLocalRun();
-      else if(!pushedData&&!dirtyResult.current&&!dirtyStudies.current&&(state.resultRevision??0)>=resultRevision.current){if(state.studies){saveStudies(state.studies.map((s:IndicatorInstance)=>({...s,result:validateScriptSnapshot(s.result,rowsRef.current)})));}if(state.studies){const active=studiesRef.current.find(s=>s.id===state.currentStudyId)??studiesRef.current.at(-1);if(active)activateStudy(active);else{activeStudy.current=null;activeSource.current=null;setResult(null);}}else if(state.result)installStudy(validateScriptResult(state.result,rowsRef.current),state.script);resultRevision.current=state.resultRevision??0;if(state.scriptOrigin==='agent'&&state.script&&state.script!==source)setAgentSource(state.script);}
+      if(state.scriptOrigin==='agent'&&state.script&&state.script!==source)setAgentSource(state.script);
       if(hello){bridgeReady.current=true;setBridge(true);retryDelay.current=1000;if(retryTimer.current){clearTimeout(retryTimer.current);retryTimer.current=null;}}
     }else if(event.type==='candle'){
-      if(event.revision<=revision.current)return;revision.current=event.revision;chart.current?.updateCandle(event.candle);setDataSource('Injected via API / MCP');
+      if(resetPending.current||event.dataEpoch!==serverDataEpoch.current||event.revision<=revision.current)return;revision.current=event.revision;chart.current?.updateCandle(event.candle);setDataSource('Injected via API / MCP');
     }else if(event.type==='view'){
       if(event.viewRevision<=viewRevision.current)return;viewRevision.current=event.viewRevision;
       if(!dirtyView.current){setScale(event.scaleMode);setChartStyle(event.chartStyle);viewRef.current={scaleMode:event.scaleMode,chartStyle:event.chartStyle};}if(event.fitContent)chart.current?.fitContent();
@@ -203,9 +217,9 @@ export default function App(){
         await api(`/commands/${event.id}`,'POST',{result:value??{accepted:true}});
       }catch(error){await api(`/commands/${event.id}`,'POST',{error:(error as Error).message});}
     }else if(event.type==='run'){void handlers.current.runScript(event.source,event.options,{id:event.jobId,revision:event.revision,candles:event.candles,studyId:event.studyId});}
-    else if(event.type==='studies'){if(resetPending.current||event.revision!==revision.current||event.resultRevision<=resultRevision.current)return;resultRevision.current=event.resultRevision;mergeStudies(event.studies,event.removedIds,event.partial);}
+    else if(event.type==='studies'){applyStudyDelta(event);}
     else if(event.type==='result'){
-      if(resetPending.current||event.revision!==revision.current||event.resultRevision<=resultRevision.current)return;resultRevision.current=event.resultRevision;dirtyResult.current=false;localRun.current=null;installStudy(validateScriptResult(event.result,rowsRef.current),event.source,event.studyId);if(event.origin==='agent'&&event.source&&event.source!==source)setAgentSource(event.source);setStatus('Script result received from agent bridge');
+      if(resetPending.current||event.dataEpoch!==serverDataEpoch.current||event.resultRevision<=Math.max(studySnapshotFloor.current,studyVersions.current.get(event.studyId)??-1))return;studyVersions.current.set(event.studyId,event.resultRevision);knownStudies.current.add(event.studyId);resultRevision.current=Math.max(resultRevision.current,event.resultRevision);dirtyResult.current=false;localRun.current=null;installStudy(validateScriptSnapshot(event.result,rowsRef.current),event.source,event.studyId);if(event.origin==='agent'&&event.source&&event.source!==source)setAgentSource(event.source);setStatus('Script result received from agent bridge');
     }
   }};
   useEffect(()=>{

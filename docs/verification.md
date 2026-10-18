@@ -7,8 +7,8 @@ Chrome. No customer messages or exchange orders were sent.
   slippage, data/import validation and result schemas.
 - `npm run build`: passes TypeScript checks and builds the workspace, ES module,
   standalone browser bundle and declarations.
-- `npm run test:browser`: 68 passing browser/integration checks (32 existing
-  regressions, 18 extended checks and 18 multi-indicator/workspace checks), with no runtime
+- `npm run test:browser`: 72 passing browser/integration checks (32 existing
+  regressions, 18 extended checks and 22 multi-indicator/workspace checks), with no runtime
   page errors. Uses the compiled workspace, real HTTP/SSE bridge, actual stdio
   MCP client/server and browser script sandbox. Chart data is deterministic test
   fixtures; external Binance availability is not covered.
@@ -47,6 +47,13 @@ drawing hit tests, timestamp labels, parameter/source isolation, persistent run
 options, custom tool names, responsive layouts, pane alignment and command
 exports. This is a code review, not a claim
 of complete TradingView feature parity.
+
+The multi-indicator changes received three additional read-only Claude reviews.
+Confirmed issues were fixed with regressions covering snapshot validation,
+per-instance update ordering, disconnected clients, dataset resets during
+uploads, deletion races, editor identity for duplicate scripts and stable
+returned instance IDs. Streaming updates use dataset generations separately
+from per-study revisions, and synchronization sends one changed study per request.
 
 The release includes MIT attribution and bundled dependency license notices.
 The default UI clearly labels generated demo data. Backtests use a documented
