@@ -2,6 +2,28 @@
 
 The standalone browser build and workspace bundle include the packages below. Their original license notices are reproduced here. Other installed dependencies retain their own licenses.
 
+## Madrid Bull Bear Sentiment example — MPL-2.0
+
+Original author: Madrid. Original publication:
+https://www.tradingview.com/script/4vBxsw2R-Madrid-Bull-Bear-Sentiment/
+
+The original source headers identify Bull Bear Sentiment 2.0 (150424FR0007)
+and its Pine v5 conversion (220120TH2201). The JavaScript adaptation is copyright
+2026 Opennan and contributors. Its source, including the original credit
+headers and MPL notice, is in [shared/examples/madrid.mjs](shared/examples/madrid.mjs)
+and at https://github.com/Opennan/opennanchart/blob/main/shared/examples/madrid.mjs.
+The same MPL notice is carried inside the runnable example returned by MCP.
+
+This Source Code Form is subject to the terms of the Mozilla Public License,
+v. 2.0. A copy is distributed in [LICENSES/MPL-2.0.txt](LICENSES/MPL-2.0.txt),
+or can be obtained at https://mozilla.org/MPL/2.0/.
+
+The Madrid source visible in the README workspace screenshot is a portion of
+this MPL-covered example. Its editable source and license are available at the
+links above. The screenshot itself does not grant an MIT license to that code.
+The migration guide, docs/pine-to-javascript.md, also includes a derived code
+fragment and is distributed as an MPL-2.0 file with a license notice.
+
 ## @codemirror/autocomplete 6.20.3
 
 ```text

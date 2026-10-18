@@ -23,6 +23,10 @@ chart space.
 
 ![Opennanchart JavaScript workspace showing the Madrid Bull Bear Sentiment source beneath the chart and two indicator panes](https://cdn.opennan.com/uploads/8QIUS5KbisXcp4yKdT46hfv5kGo2/playground/1792321315_multi-indicator-workspace.png)
 
+The Madrid source shown in this screenshot is an **MPL-2.0** example by Madrid,
+adapted to JavaScript by Opennan. [Editable source](shared/examples/madrid.mjs)
+and [license](LICENSES/MPL-2.0.txt) are included in this repository.
+
 Open **JavaScript**, load an example and choose **Run script** to add it to the
 chart. Use an indicator's settings control to edit its declared parameters, or
 its code control to reopen the source in the editor.
@@ -341,8 +345,16 @@ elsewhere (`npx playwright install chromium`). Set `PLAYWRIGHT_CHANNEL` to
 override the browser channel. Tests use isolated local bridge data and do not
 contact customers or place exchange orders.
 
-MIT licensed. [Opennan company credits](CREDITS.md) and original attribution are retained in LICENSE and NOTICE. Bundled
-dependency licenses are reproduced in THIRD_PARTY_NOTICES.md.
+The Opennanchart core is **MIT licensed**. The separately maintained
+[Madrid example](shared/examples/madrid.mjs), its embedded script and
+[migration guide containing a derived excerpt](docs/pine-to-javascript.md)
+are **MPL-2.0**, with the [full license](LICENSES/MPL-2.0.txt) included. Package
+metadata uses `MIT AND MPL-2.0` for this combination; this does not offer a
+choice to relicense the Madrid source under MIT. Browser bundles carry a
+source-availability notice, and the package includes the editable covered source.
+[Opennan company credits](CREDITS.md), original author attribution and component
+license scope are retained in [LICENSE](LICENSE), [NOTICE](NOTICE) and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Multiple indicators and workspace controls
 

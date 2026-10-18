@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "An embeddable React candlestick chart with JavaScript indicators, backtesting and MCP.",
   "type": "module",
-  "license": "MIT",
+  "license": "MIT AND MPL-2.0",
   "main": "./dist/opennanchart.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -23,6 +23,7 @@
     "docs",
     "README.md",
     "LICENSE",
+    "LICENSES",
     "NOTICE",
     "THIRD_PARTY_NOTICES.md",
     "CREDITS.md"

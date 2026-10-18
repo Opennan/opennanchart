@@ -1,8 +1,22 @@
+<!-- SPDX-License-Identifier: MPL-2.0
+This Source Code Form is subject to the terms of the Mozilla Public License,
+v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain
+one at https://mozilla.org/MPL/2.0/. -->
+
 # From Pine Script to Opennanchart JavaScript
+
+This guide includes a Madrid-derived code fragment and is distributed under
+[MPL-2.0](../LICENSES/MPL-2.0.txt). Original prose and JavaScript adaptation:
+copyright 2026 Opennan and contributors; original indicator credit: Madrid.
 
 Opennanchart runs JavaScript. It does not compile Pine, load protected scripts,
 or reproduce the entire TradingView runtime. Translate formulas and visual
 intent explicitly, then verify values on identical OHLCV bars.
+
+Translate scripts you own or have permission to adapt, and follow their source
+licenses when distributing translations. A language change does not remove a
+third-party script's license conditions. TradingView and Pine Script are
+trademarks of TradingView, Inc.; this is an independent Opennan guide.
 
 This guide was checked against TradingView's official documentation:
 [execution model](https://www.tradingview.com/pine-script-docs/language/execution-model/),
@@ -41,7 +55,7 @@ JS callbacks receive primitive current-bar values. `close[1]` is not meaningful
 JavaScript history access. Do not turn unavailable values into zero accidentally
 through `null + number`; check for null or explicitly use the `nz` equivalent.
 
-## Your Madrid Bull Bear Sentiment example
+## Madrid Bull Bear Sentiment example
 
 Choose **Load example → Madrid Bull Bear Sentiment**. The translation preserves
 Madrid's credit, an 18-bar editable length, Smooth checkbox, the two-pole
@@ -65,10 +79,16 @@ filter1 = filtered;
 previousRaw = raw;
 ```
 
-The complete runnable source is in `shared/templates.mjs` and is available
-to agents with `chart_get_example({name:'madrid'})`.
+The complete runnable source is in
+[`shared/examples/madrid.mjs`](../shared/examples/madrid.mjs) under **MPL-2.0**
+and is available to agents with `chart_get_example({name:'madrid'})`. The
+registry imports it from this separate file. Original author: Madrid;
+JavaScript adaptation: Opennan and contributors. See
+[original publication](https://www.tradingview.com/script/4vBxsw2R-Madrid-Bull-Bear-Sentiment/),
+[credits](../CREDITS.md) and [full license](../LICENSES/MPL-2.0.txt).
+The filter fragment above is also an excerpt of that MPL-covered adaptation.
 
-## Your Bearish Engulfing example
+## Bearish Engulfing example
 
 Choose **Load example → Bearish Engulfing**, or ask MCP for `engulfing`.
 This is the same predicate with nested ternaries written as conjunctions:

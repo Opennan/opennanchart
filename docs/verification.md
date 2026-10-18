@@ -55,7 +55,9 @@ uploads, deletion races, editor identity for duplicate scripts and stable
 returned instance IDs. Streaming updates use dataset generations separately
 from per-study revisions, and synchronization sends one changed study per request.
 
-The release includes MIT attribution and bundled dependency license notices.
+The release includes MIT attribution for the core, MPL-2.0 notices and editable
+source for the separately maintained Madrid example, and bundled dependency
+license notices. See [CREDITS.md](../CREDITS.md) for source provenance and scope.
 The default UI clearly labels generated demo data. Backtests use a documented
 single-position, next-open execution model; Pine Script and exchange execution
 are outside this release.

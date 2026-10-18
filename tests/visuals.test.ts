@@ -1,6 +1,12 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import {executeScript} from '../src/engine';import {sampleCandles} from '../src/data';import {TEMPLATES} from '../src/scripting/templates';import {validateScriptResult} from '../shared/result.mjs';import {validateCustomTool} from '../shared/tools.mjs';
 const rows=sampleCandles(100);
+test('Madrid examples distributed through the registry retain their license and original author notices',()=>{
+  assert.ok(TEMPLATES.madrid.source.startsWith('// SPDX-License-Identifier: MPL-2.0'));
+  assert.match(TEMPLATES.madrid.source,/https:\/\/mozilla\.org\/MPL\/2\.0\//);
+  assert.match(TEMPLATES.madrid.source,/Madrid : 150424FR0007/);
+  assert.match(TEMPLATES.madrid.source,/Madrid : 220120TH2201/);
+});
 test('every shipped example runs and passes outside-realm validation',()=>{for(const [name,t]of Object.entries(TEMPLATES)){const r=executeScript(rows,t.source);assert.equal(validateScriptResult(r,rows),r,name);}});
 test('warmup nulls preserve plot declaration order for opaque layered visuals',()=>{const r=executeScript(rows,TEMPLATES.madrid.source);assert.deepEqual(r.plots.map(p=>p.name),['Bear area','Bull area','Sentiment','Midpoint','Overbought','Oversold']);assert.equal(r.plots[1].values[0].index,1);});
 test('engulfing matches strict user predicate, colors and recorded alerts',()=>{

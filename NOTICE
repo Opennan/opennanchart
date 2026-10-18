@@ -12,3 +12,18 @@ The circuit arc logo and visual identity come from the owner's Opennan product.
 Opennanchart is an independent product and is not affiliated with TradingView.
 The renderer is custom React/canvas; this package does not contain TradingView's
 proprietary Advanced Charts or Pine Script runtime.
+
+Madrid Bull Bear Sentiment example (shared/examples/madrid.mjs and its
+embedded JavaScript source): Mozilla Public License 2.0 (MPL-2.0).
+Original author: Madrid. Original source headers identify Bull Bear Sentiment
+2.0 (150424FR0007) and its Pine v5 conversion (220120TH2201).
+Original: https://www.tradingview.com/script/4vBxsw2R-Madrid-Bull-Bear-Sentiment/
+JavaScript adaptation: Copyright (c) 2026 Opennan and contributors.
+The MPL-covered source is distributed in shared/examples/madrid.mjs and is
+available at https://github.com/Opennan/opennanchart/blob/main/shared/examples/madrid.mjs
+Full license: LICENSES/MPL-2.0.txt or https://mozilla.org/MPL/2.0/.
+This applies to the example included in browser bundles and distributed by MCP.
+docs/pine-to-javascript.md contains a derived example fragment and is also
+distributed under MPL-2.0, with its notice in the file.
+The remaining original project code is MIT; package metadata uses
+"MIT AND MPL-2.0" to describe these distinct components, not a choice of license.

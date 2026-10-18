@@ -20,3 +20,12 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+Scope: The MIT license above applies to the Opennanchart core and original
+project code. The separately identified Madrid-derived example in
+shared/examples/madrid.mjs, including its embedded JavaScript source, is
+licensed under MPL-2.0 instead. docs/pine-to-javascript.md, which includes a
+derived code excerpt, is also MPL-2.0. The full license is in LICENSES/MPL-2.0.txt.
+Bundled copies of that example retain the MPL-covered source's terms; this
+MIT notice does not relicense that source. Other bundled third-party software
+retains the licenses listed in THIRD_PARTY_NOTICES.md.
