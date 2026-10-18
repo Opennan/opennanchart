@@ -11,6 +11,22 @@ A dark, embeddable React/canvas candlestick chart with JavaScript indicators,
 next-open backtesting and an MCP bridge. Built from the original TradingReact
 chart, with Opennan's visual identity.
 
+## Chart workspace
+
+Actual screenshots of the running app with deterministic demo candles.
+
+![Opennanchart dark candlestick chart with moving averages, Bearish Engulfing signals, and separate Madrid Sentiment and MACD panes](https://cdn.opennan.com/uploads/8QIUS5KbisXcp4yKdT46hfv5kGo2/playground/1792321288_multi-indicator-chart.png)
+
+Keep multiple indicators on the price chart or in separate panes. Each has its
+own visibility, settings and remove controls. Collapse the bottom panel for more
+chart space.
+
+![Opennanchart JavaScript workspace showing the Madrid Bull Bear Sentiment source beneath the chart and two indicator panes](https://cdn.opennan.com/uploads/8QIUS5KbisXcp4yKdT46hfv5kGo2/playground/1792321315_multi-indicator-workspace.png)
+
+Open **JavaScript**, load an example and choose **Run script** to add it to the
+chart. Use an indicator's settings control to edit its declared parameters, or
+its code control to reopen the source in the editor.
+
 ## Create indicators in JavaScript
 
 Choose **Load example → Madrid Bull Bear Sentiment** for an oscillator in a
