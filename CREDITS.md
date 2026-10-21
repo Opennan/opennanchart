@@ -1,4 +1,4 @@
-# Opennanchart credits
+# OpennanChart credits
 
 **Created and maintained by [Opennan](https://opennan.com/).**
 
@@ -36,6 +36,6 @@ project, with Opennan's JavaScript input, marker and alert wiring. No original
 author or publication was supplied for that predicate, so none is asserted here.
 
 TradingView and Pine Script are referenced for interoperability explanations.
-Opennanchart is an independent Opennan project, without a TradingView affiliation
+OpennanChart is an independent Opennan project, without a TradingView affiliation
 or a bundled Pine Script runtime.
 TradingView and Pine Script are trademarks of TradingView, Inc.

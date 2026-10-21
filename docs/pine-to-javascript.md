@@ -3,13 +3,13 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at https://mozilla.org/MPL/2.0/. -->
 
-# From Pine Script to Opennanchart JavaScript
+# From Pine Script to OpennanChart JavaScript
 
 This guide includes a Madrid-derived code fragment and is distributed under
 [MPL-2.0](../LICENSES/MPL-2.0.txt). Original prose and JavaScript adaptation:
 copyright 2026 Opennan and contributors; original indicator credit: Madrid.
 
-Opennanchart runs JavaScript. It does not compile Pine, load protected scripts,
+OpennanChart runs JavaScript. It does not compile Pine, load protected scripts,
 or reproduce the entire TradingView runtime. Translate formulas and visual
 intent explicitly, then verify values on identical OHLCV bars.
 

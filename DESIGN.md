@@ -1,4 +1,4 @@
-# Opennanchart design system
+# OpennanChart design system
 
 The user selected https://opennan.com/ as the visual reference on 2026-10-18. Source tokens were inspected in the existing Opennan frontend and checked against the live site.
 

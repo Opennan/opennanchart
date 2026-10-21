@@ -6,7 +6,7 @@ product
 
 ## Users
 
-Developers, traders and AI agents building charting tools, custom indicators and reproducible strategy experiments. The owner wants to publish the existing React chart as Opennanchart, with JavaScript and MCP access.
+Developers, traders and AI agents building charting tools, custom indicators and reproducible strategy experiments. The owner wants to publish the existing React chart as OpennanChart, with JavaScript and MCP access.
 
 ## Product Purpose
 

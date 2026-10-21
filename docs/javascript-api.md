@@ -1,6 +1,6 @@
 # JavaScript indicator guide
 
-Opennanchart is created by [Opennan](https://opennan.com/). Start the workspace,
+OpennanChart is created by [Opennan](https://opennan.com/). Start the workspace,
 choose an example in **JavaScript → Load example**, then **Run script**. Open
 **Settings** after running to edit parameters; **Apply & run** recalculates.
 Author-locked inputs remain disabled. **Workspace settings** controls visible
@@ -176,7 +176,7 @@ onBar(({ open, close, plot, barcolor, bgcolor, plotshape }) => {
 same message on the same bar is deduplicated. Events are available in the
 **Alerts** tab, `result.alerts` and MCP results. Limit: 10,000/run. No push,
 webhook, email or server scheduler is created. Pine's running alerts apply to
-realtime bars; Opennanchart records historical close-evaluation events for
+realtime bars; OpennanChart records historical close-evaluation events for
 inspection, so these are deliberately different services.
 
 `strategy.entry('long' | 'short')` and `strategy.close()` queue a fill at the

@@ -1,4 +1,4 @@
-# Opennanchart
+# OpennanChart
 
 <a href="https://opennan.com/"><img src="https://opennan.com/logo-social.svg" width="64" height="64" alt="Opennan" /></a>
 
@@ -15,13 +15,13 @@ chart, with Opennan's visual identity.
 
 Actual screenshots of the running app with deterministic demo candles.
 
-![Opennanchart dark candlestick chart with moving averages, Bearish Engulfing signals, and separate Madrid Sentiment and MACD panes](https://cdn.opennan.com/uploads/8QIUS5KbisXcp4yKdT46hfv5kGo2/playground/1792321288_multi-indicator-chart.png)
+![OpennanChart dark candlestick chart with moving averages, Bearish Engulfing signals, and separate Madrid Sentiment and MACD panes](https://cdn.opennan.com/uploads/8QIUS5KbisXcp4yKdT46hfv5kGo2/playground/1792321288_multi-indicator-chart.png)
 
 Keep multiple indicators on the price chart or in separate panes. Each has its
 own visibility, settings and remove controls. Collapse the bottom panel for more
 chart space.
 
-![Opennanchart JavaScript workspace showing the Madrid Bull Bear Sentiment source beneath the chart and two indicator panes](https://cdn.opennan.com/uploads/8QIUS5KbisXcp4yKdT46hfv5kGo2/playground/1792321315_multi-indicator-workspace.png)
+![OpennanChart JavaScript workspace showing the Madrid Bull Bear Sentiment source beneath the chart and two indicator panes](https://cdn.opennan.com/uploads/8QIUS5KbisXcp4yKdT46hfv5kGo2/playground/1792321315_multi-indicator-workspace.png)
 
 The Madrid source shown in this screenshot is an **MPL-2.0** example by Madrid,
 adapted to JavaScript by Opennan. [Editable source](shared/examples/madrid.mjs)
@@ -92,7 +92,7 @@ then open http://127.0.0.1:3030/.
 - A local JavaScript editor with examples, saved drafts, recoverable errors and cancellation.
 - Real stdio MCP tools connected to the visible browser workspace.
 
-This is the first Opennanchart release, not a replacement for every TradingView
+This is the first OpennanChart release, not a replacement for every TradingView
 feature. It does not implement Pine Script, exchange order placement,
 multi-position portfolios, limit/stop fills, an exchange datafeed service or
 TradingView's proprietary libraries. Chart drawings use pointer interactions;
@@ -345,7 +345,7 @@ elsewhere (`npx playwright install chromium`). Set `PLAYWRIGHT_CHANNEL` to
 override the browser channel. Tests use isolated local bridge data and do not
 contact customers or place exchange orders.
 
-The Opennanchart core is **MIT licensed**. The separately maintained
+The OpennanChart core is **MIT licensed**. The separately maintained
 [Madrid example](shared/examples/madrid.mjs), its embedded script and
 [migration guide containing a derived excerpt](docs/pine-to-javascript.md)
 are **MPL-2.0**, with the [full license](LICENSES/MPL-2.0.txt) included. Package
