@@ -75,11 +75,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Opennan/opennanchart.git"
+    "url": "git+https://github.com/Opennan/OpennanChart.git"
   },
-  "homepage": "https://github.com/Opennan/opennanchart#readme",
+  "homepage": "https://github.com/Opennan/OpennanChart#readme",
   "bugs": {
-    "url": "https://github.com/Opennan/opennanchart/issues"
+    "url": "https://github.com/Opennan/OpennanChart/issues"
   },
   "author": {
     "name": "Opennan",

@@ -104,7 +104,7 @@ The package is prepared for npm distribution. Until a registry release exists,
 install directly from the public source (npm builds it through `prepare`):
 
 ```sh
-npm install github:Opennan/opennanchart react react-dom
+npm install github:Opennan/OpennanChart react react-dom
 ```
 
 Or build and install its local archive:

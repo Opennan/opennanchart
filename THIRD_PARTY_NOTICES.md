@@ -11,7 +11,7 @@ The original source headers identify Bull Bear Sentiment 2.0 (150424FR0007)
 and its Pine v5 conversion (220120TH2201). The JavaScript adaptation is copyright
 2026 Opennan and contributors. Its source, including the original credit
 headers and MPL notice, is in [shared/examples/madrid.mjs](shared/examples/madrid.mjs)
-and at https://github.com/Opennan/opennanchart/blob/main/shared/examples/madrid.mjs.
+and at https://github.com/Opennan/OpennanChart/blob/main/shared/examples/madrid.mjs.
 The same MPL notice is carried inside the runnable example returned by MCP.
 
 This Source Code Form is subject to the terms of the Mozilla Public License,

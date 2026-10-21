@@ -20,7 +20,7 @@ Original author: Madrid. Original source headers identify Bull Bear Sentiment
 Original: https://www.tradingview.com/script/4vBxsw2R-Madrid-Bull-Bear-Sentiment/
 JavaScript adaptation: Copyright (c) 2026 Opennan and contributors.
 The MPL-covered source is distributed in shared/examples/madrid.mjs and is
-available at https://github.com/Opennan/opennanchart/blob/main/shared/examples/madrid.mjs
+available at https://github.com/Opennan/OpennanChart/blob/main/shared/examples/madrid.mjs
 Full license: LICENSES/MPL-2.0.txt or https://mozilla.org/MPL/2.0/.
 This applies to the example included in browser bundles and distributed by MCP.
 docs/pine-to-javascript.md contains a derived example fragment and is also

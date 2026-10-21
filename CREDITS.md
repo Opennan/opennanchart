@@ -2,7 +2,7 @@
 
 **Created and maintained by [Opennan](https://opennan.com/).**
 
-Public project: [Opennan/opennanchart](https://github.com/Opennan/opennanchart).
+Public project: [Opennan/OpennanChart](https://github.com/Opennan/OpennanChart).
 The Opennan name, circuit mark, product identity, JavaScript workspace and MCP
 integration belong to this project and its company contributors. Keep this
 company credit when redistributing the project documentation.
